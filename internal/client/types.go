@@ -88,11 +88,11 @@ type Task struct {
 }
 
 // TaskSubmitRequest is the request to submit a task.
+// v0.6.0 M3 W7 fix: 字段名从 message/sourcePeer/sourceAgentId/intent 改为
+// kernel 真相源 SubmitRequest 的 prompt + timeoutMs (对齐 wau-go-sdk types.go)。
 type TaskSubmitRequest struct {
-	Message       string     `json:"message" binding:"required"`
-	SourcePeer    string     `json:"sourcePeer" binding:"required"`
-	SourceAgentID string     `json:"sourceAgentId,omitempty"`
-	Intent        *IntentDTO `json:"intent,omitempty"`
+	Prompt    string `json:"prompt" binding:"required"`
+	TimeoutMs int    `json:"timeout_ms,omitempty"`
 }
 
 // IntentDTO is the intent data transfer object.

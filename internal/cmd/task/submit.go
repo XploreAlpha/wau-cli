@@ -63,16 +63,8 @@ func runSubmit(cmd *cobra.Command, args []string) error {
 	defer cancel()
 
 	req := &wauclient.TaskSubmitRequest{
-		Message:       message,
-		SourcePeer:    submitSource,
-		SourceAgentID: submitSourceID,
-	}
-
-	if submitIntentType != "" || submitUrgency != "normal" {
-		req.Intent = &wauclient.IntentDTO{
-			Type:    submitIntentType,
-			Urgency: submitUrgency,
-		}
+		Prompt:    message,
+		TimeoutMs: 30000,
 	}
 
 	result, err := c.SubmitTask(ctx, req)
