@@ -307,3 +307,44 @@ Apache 2.0 - see [LICENSE](LICENSE)
 - [wau-circuit](https://github.com/wau/circuit) - Circuit breaker
 - [wau-intent](https://github.com/wau/intent) - Intent parser
 - [wau-scheduler](https://github.com/wau/scheduler) - Scheduler
+
+---
+
+## v0.9.0 "Acorn" 收口段(2026-09-15 GA)
+
+上文详细介绍了 wau-cli 设计 + 子命令 + 与 WAU 产品体系的关系。本段为 v0.9.0 GA 增量补充。
+
+### 角色
+
+| OS 类比 | CLI / DevTool(开发工具)|
+|---|---|
+| 部署 | 单 binary,本地装,不入生产路径 |
+| 通信 | HTTP / gRPC client,调 WAU 产品体系所有仓 |
+| 状态 | v0.8.0 GA 已发(2026-07-13)|
+
+### v0.9.0 子命令新增
+
+- `wau trust issue/verify/revoke` — wau-trust 调试
+- `wau profile get/upsert` — wau-profile 调试
+- `wau intent classify` — wau-intent 调试
+- `wau registry register/list` — wau-registry-service 调试
+- `wau circuit run` — wau-circuit 跑 circuit 描述
+- `wau scheduler submit/stats` — wau-scheduler 调试
+
+### 跨产品体系
+
+`wau-cli` 是**唯一**跟 14 仓全部打交道的工具。每个子命令 = 1 个对应仓的 client 封装。
+
+### v0.9.0 "Acorn" 5 份核心文档
+
+| # | 文件 | 内容 |
+|---|---|---|
+| 1 | [README.md](README.md)(本文件)| 仓入口 + 子命令总览 + v0.9.0 收口段 |
+| 2 | [QUICKSTART.md](QUICKSTART.md) | 15 分钟跑通 5 个常用子命令 |
+| 3 | [DEPLOY.md](DEPLOY.md) | 本地装 + 配置 + autocompletion |
+| 4 | [ARCHITECTURE.md](ARCHITECTURE.md) | 子命令路由 + client 复用 |
+| 5 | [CHANGELOG.md](CHANGELOG.md) | v0.8.0 + v0.9.0 倒序(126 行已存在)|
+
+### 历史锚点
+
+- v0.8.0 GA([[project-v0.8.0-GA-2026-07-13]])
