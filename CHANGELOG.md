@@ -1,3 +1,15 @@
+## [v0.9.0] - 2026-07-02 (v0.9.0 GA)
+
+### Highlights
+
+- v0.9.0 同步发版 + 文档补全(4 新文档 + CHANGELOG)
+- 详见 GA 收口报告:~/WAU-develop/develop-log/kernel/v0.9.0/wrapup/2026-07-02-PROGRESS-v0.9.0-GA-CLOSURE.md
+
+### Compatibility
+
+- API 100% 保留
+- 4 SDK 同步 v1.2.0
+
 # Changelog
 
 All notable changes to wau-cli will be documented in this file.
