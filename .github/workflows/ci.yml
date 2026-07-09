@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Go ${{ matrix.go-version }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: ['1.23','1.24','1.25']
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: true
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: gofmt check
+        run: |
+          test -z "$(gofmt -l .)" || (echo "gofmt found diffs:"; gofmt -l .; exit 1)
+
+      - name: go test (race)
+        run: go test -race -count=1 -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.25'
+        run: |
+          go tool cover -func=coverage.out | grep total | awk '{print "Total coverage:", $3}'
+          cov=$(go tool cover -func=coverage.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
+          echo "Coverage: ${cov}%"
+          if awk "BEGIN{exit !($cov < 80)}"; then
+            echo "::error::Coverage ${cov}% < 80%"
+            exit 1
+          fi
+
+      - name: Upload coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.25'
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.out
