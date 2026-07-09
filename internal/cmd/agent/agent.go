@@ -17,7 +17,8 @@ Subcommands:
   get          Get agent details
   register     Register a new agent
   deregister   Deregister an agent
-  score        Get agent score`,
+  score        Get agent score
+  publish      Publish a skill bundle (manifest + tarball) to wau-registry`,
 	}
 
 	cmd.AddCommand(newListCmd())
@@ -25,6 +26,7 @@ Subcommands:
 	cmd.AddCommand(newRegisterCmd())
 	cmd.AddCommand(newDeregisterCmd())
 	cmd.AddCommand(newScoreCmd())
+	cmd.AddCommand(newPublishCmd())
 
 	return cmd
 }
