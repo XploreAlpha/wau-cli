@@ -10,6 +10,30 @@
 - API 100% 保留
 - 4 SDK 同步 v1.2.0
 
+## [Unreleased] — v1.0.0 "Phoenix" M11 P4.5 ⭐L5 包管理器 CLI (2026-07-10, per D72/D73/D74)
+
+### Added
+
+- **5 新 subcommand** under `wau agent`:
+  - `wau agent install <name>`     装 agent(类比 apt install / npm install)
+  - `wau agent uninstall <name>`   卸 agent(`--purge` 全删)
+  - `wau agent update [<name>]`    更新 agent(无 name = 全更新,`--version` 锁版)
+  - `wau agent search <query>`     搜 wau-registry(`--universe` / `--limit` 过滤)
+  - `wau agent login`              登入拿 token(落 `~/.wau/credentials` per D74)
+- **L5 HTTP client** `internal/client/l5.go`(~150 LoC):5 method + 5 request/response struct
+- **wau agent help 文档**:`agent.go` `Long` 字段加 5 新 subcommand 描述
+
+### Compatibility (D60 additive)
+
+- 老 6 subcommand(list/get/register/deregister/score/publish)0 改
+- 老 client `internal/client/*.go` 0 改
+- 走 WAU-core-kernel `/v1/l5/*` HTTP API(单仓 +0 整合 per D72)
+
+### Reference
+
+- D72 A 拍板 (wau-toolkit v2.0 OS-level, 仓数 +0):[stage1/01-D66-D74-9-decisions-summary#七](https://github.com/wau-network/WAU-develop/blob/main/develop-log/kernel/v1.0.0/stage1/01-D66-D74-9-decisions-summary.md)
+- 设计 doc:[stage1/04-wau-toolkit-v2.0-OS-level-design.md](https://github.com/wau-network/WAU-develop/blob/main/develop-log/kernel/v1.0.0/stage1/04-wau-toolkit-v2.0-OS-level-design.md)
+
 # Changelog
 
 All notable changes to wau-cli will be documented in this file.
