@@ -1,3 +1,62 @@
+## [Unreleased] — v1.0.0 "Phoenix" ⭐wau stack + 第二刀 HTTP client 重构 (2026-08-20, per visa demo + 子项 4.1)
+
+### Added — 第一刀(上午段)
+
+- **`wau stack up / down / ls`** 子命令族(per visa demo + v1.1.0 子项 4.1,2026-08-20):
+  - `wau stack up [--file PATH] [--profile NAME] [--demo] [--dry-run] [--detach] [--wait-max DURATION]`
+  - `wau stack down [--file PATH] [--profile NAME] [--force] [--all]`
+  - `wau stack ls [--file PATH] [--profile NAME] [-o table|json|yaml]` (alias: status, ps)
+- **内置 default 9-service stack**(per project-wau-19-repo-real-architecture-2026-07-15):
+  redis + wau-core + registry + wau-store + wau-intent + wau-profile + wau-llm-router + wau-edge + wau-channel + wau-agent
+- **`demo` / `minimal` profile**:`wau stack up --demo` / `--profile minimal`
+- **`internal/stack` package**(1756 LoC,含测试):YAML schema + 拓扑排序(Kahn's algo) + 环检测 + health probes(TCP/HTTP/exec 3 类型) + process manager(SIGTERM→5s→SIGKILL) + runtime state 持久化(`~/.wau/run/<stack>.json`)
+- **`internal/cmd/stack` package**(837 LoC,含测试):cobra 子命令 + dry-run 模式 + 彩色输出
+- **`internal/output/progress.go`**:Progress bar + Spinner + ServiceRow 格式化(基于 `schollz/progressbar/v3`)
+- **Binary 路径 hybrid 解析**:`~/.wau/bin` → `$GOBIN` → `$PATH` → go install hint
+- **依赖图拓扑排序**:Kahn's algorithm + alphabetical tie-break + 环检测(失败列出循环节点)
+
+### Added — 第二刀(下午段,visa demo 验证 + HTTP client 重构)
+
+- **HTTP client retry + exponential backoff**(per P1.1,internal/client/retry.go,~120 LoC):
+  - 默认 3 次重试,exponential backoff(base=500ms, max=8s)+ ±20% jitter
+  - 重试条件:网络错误 / HTTP 5xx / HTTP 429(不重试 4xx 业务错误避免 lockout)
+  - RequestOpts 覆盖:MaxRetries / InitialBackoff / MaxBackoff / PerAttemptTimeout
+- **HTTP client JWT bearer auth**(per P1.2 + D66=B 4-claim,internal/client/auth.go,~110 LoC):
+  - 凭证从 `~/.wau/credentials` 读(per D74):access_token / refresh_token / expires_at / user_id
+  - 自动发 `Authorization: Bearer <access_token>` header
+  - 保留 `X-Agent-Role`(向后兼容老 server)
+  - AuthProvider interface 支持未来 RefreshableProvider(401 自动 refresh)
+- **`wau completion <bash|zsh|fish|powershell>`** 子命令(per P1.4):生成 shell 自动补全脚本
+  - 禁用 cobra 默认 `__complete` 命令,启用我们的 `completion` 子命令
+- **`wau node ls` / `wau node info <name>` / `wau peer ls`** 子命令(per P2.5,internal/cmd/node.go,~155 LoC):
+  - 调 `/registry/agents` + `/registry/agents/{name}/status`
+  - table / json / yaml 三种格式
+  - `wau peer ls` = `wau node ls` 的 libp2p 风格别名
+  - tolerant decoder:接受 object `{"agents":[...]}` 或 array `[...]` 两种 server 返回格式
+- **`internal/client/agents.go` ListAgents tolerant decoder**(per visa demo):
+  - server 实测返回 array,client 先尝试 object 解码,失败 fallback 到 array(无 retry,1 次试探)
+  - 已验证:`wau node ls --addr http://43.134.126.126:18400` 正确列出 matwau 节点
+
+### Tests — 第二刀
+
+- `internal/client/client_test.go`:14 tests — NewClient 默认 / retry 4xx/5xx/429 / 网络错误 / context cancel / Bearer auth / 过期 token / backoff math
+- `internal/client/l5_test.go`:6 tests — L5Search/Update/Login JSON roundtrip + Credentials LoadSave/Valid
+- `internal/cmd/agent/install_test.go`:10 tests — parseConfig 4 case + runInstall happy/error/500/noarg + request shape + cmd wiring
+- `internal/cmd/completion_test.go`:4 tests — 4 shell 都通过 / 非法 shell / 缺参数 / bash 包含完整子命令树
+- `internal/cmd/node_test.go`:8 tests — node ls 3 case(table/json/error)+ peer alias + node info 3 case(happy/noarg/unknown)
+- 全 PASS,无回归(client 23 / agent 11 / cmd 6 / node 8 / stack 28)
+
+### Compatibility (D60 additive)
+- 老 subcommand(agent/task/config/health/kernel/version)0 改
+- 默认 kernel.addr 仍 `http://localhost:18400`(没动)— 用户配置 ~/.wau/config.yaml 可覆盖
+- 第三方 dep:`github.com/schollz/progressbar/v3 v3.19.1`(第一刀),无新增第二刀
+
+### Reference
+- v1.1.0 子项 4.1:[[project-wau-v1-1-0-deployment-plan-main-2026-08-19]]
+- visa demo context:[[project-user-applying-estonian-startup-visa-2026-08-20]]
+- server deployment:[[project-wau-production-deployment-43-134-126-126-2026-08-20]]
+- 服务器部署:[[project-wau-production-deployment-43-134-126-126-2026-08-20]]
+
 ## [v0.9.0] - 2026-07-02 (v0.9.0 GA)
 
 ### Highlights

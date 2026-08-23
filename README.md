@@ -79,6 +79,44 @@ wau task get task_1700000000
 
 ## 📚 Commands
 
+### `wau stack` ⭐ v1.0.0 第一刀 (2026-08-20)
+
+Manage the local WAU stack — bring services up, tear them down, and inspect status.
+
+Equivalent to `docker compose` / `kubectl` for a single-node WAU deployment.
+
+```bash
+# 架构可视化(签证 demo 必杀技)
+wau stack up --dry-run                # 打印 10-service 启动 plan
+wau stack up --demo --dry-run         # 同上,显式 demo profile
+
+# 真起(需本机装 9 个 binary 到 ~/.wau/bin)
+wau stack up --demo                   # 起 9 服务 + 等 health check
+wau stack up --profile minimal --detach  # 只起 redis+core+registry,后台
+
+# 看状态
+wau stack ls                          # table 输出
+wau stack ls -o json                  # JSON 给脚本
+wau stack ls -o yaml                  # YAML
+wau stack status                      # alias for ls
+wau stack ps                          # alias for ls
+
+# 关停
+wau stack down                        # SIGTERM → 5s → SIGKILL
+wau stack down --all                  # 关停 + 清 runtime state
+wau stack down --force                # 强杀(即使失败服务)
+
+# 自定义 stack 文件
+wau stack up --file /path/to/wau-stack.yml
+```
+
+**内置 default 9-service stack**(per 19 仓真实架构):
+`redis + wau-core + registry + wau-store + wau-intent + wau-profile + wau-llm-router + wau-edge + wau-channel + wau-agent`
+
+**Profiles**:
+- `demo` — 9 服务全起(visa 拍板,2026-08-20)
+- `minimal` — 只起 redis + wau-core + registry(debug 用)
+
 ### `wau health`
 
 Check kernel health.
@@ -87,6 +125,7 @@ Check kernel health.
 wau health                  # Simple check
 wau health --wait           # Wait for healthy
 wau health --wait --timeout 60s
+wau health --addr http://43.134.126.126:18400   # 远端
 ```
 
 ### `wau kernel`
@@ -112,6 +151,17 @@ wau agent get fox                           # Get agent details
 wau agent score fox                         # Get agent score
 wau agent register --name fox --url ...     # Register new agent
 wau agent deregister fox                    # Remove agent
+
+# L5 包管理器(per D72/D73/D74,2026-07-10)— 类 apt
+wau agent search medical --universe medical        # 类 apt search
+wau agent install fox-medical                       # 类 apt install
+wau agent install fox-medical --version=1.2.3      # 锁版本
+wau agent update                                    # 全更新
+wau agent update fox-medical                        # 单独更新
+wau agent uninstall fox-medical                     # 卸载
+wau agent uninstall fox-medical --purge             # 全删
+wau agent login                                      # 登入 wau-registry
+wau agent publish --from ./weather-bot              # 发布到 registry
 ```
 
 ### `wau task`
@@ -122,6 +172,31 @@ Manage tasks.
 wau task submit "帮我查天气"                 # Submit task
 wau task get task_1700000000                # Get task details
 wau task list                               # List recent tasks
+```
+
+### `wau node` ⭐ 第二刀 (2026-08-20 visa demo 验证)
+
+List and inspect WAU network nodes. In WAU, a "node" = a registered agent instance (each `agent_name` registered via `/registry/agents/register`).
+
+```bash
+wau node ls                              # List all online nodes (table)
+wau node ls -o json                      # JSON for scripts
+wau node ls --addr http://43.134.126.126:18400   # remote
+wau node info fox-medical                # Detailed status for one node
+wau peer ls                              # Alias (libp2p-style)
+```
+
+**Tolerant decoder**: server may return either `{"agents":[...]}` or raw `[...]` — client auto-detects.
+
+### `wau completion` ⭐ 第二刀
+
+Generate shell completion script.
+
+```bash
+source <(wau completion bash)                                              # bash → ~/.bashrc
+wau completion zsh > "${fpath[1]}/_wau"                                  # zsh
+wau completion fish | source                                              # fish
+wau completion powershell | Out-String | Invoke-Expression                # powershell
 ```
 
 ### `wau config`
@@ -178,7 +253,7 @@ Example (`~/.wau/config.yaml`):
 
 ```yaml
 kernel:
-  addr: "http://localhost:18400"
+  addr: "http://43.134.126.126:18400"   # 生产服务器(per 2026-08-20 visa demo)
   role: "external_agent"
   timeout: 30s
 
@@ -189,6 +264,9 @@ output:
 logging:
   level: "info"
 ```
+
+**远端访问**:所有 L5 命令支持 `--addr` flag,临时覆盖 `kernel.addr`(per wau-cli root.go L77)。
+示例:`wau agent search medical --addr http://43.134.126.126:18401 --universe medical`
 
 ---
 

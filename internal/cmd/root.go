@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/wau/wau-cli/internal/cmd/agent"
+	"github.com/wau/wau-cli/internal/cmd/stack"
 	"github.com/wau/wau-cli/internal/cmd/task"
 	wauconfig "github.com/wau/wau-cli/internal/cmd/config"
 )
@@ -50,8 +51,10 @@ Examples:
 
   # Validate configuration
   wau config validate`,
-	SilenceUsage:  true,
-	SilenceErrors: false,
+	SilenceUsage:          true,
+	SilenceErrors:         false,
+	DisableAutoGenTag:     true,
+	CompletionOptions:     cobra.CompletionOptions{DisableDefaultCmd: true}, // 我们的 completion.go 自定义
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if showVersion {
 			fmt.Printf("wau-cli %s \"%s\"\n", Version, ReleaseName)
@@ -84,6 +87,8 @@ func init() {
 	rootCmd.AddCommand(agent.NewAgentCmd())
 	rootCmd.AddCommand(task.NewTaskCmd())
 	rootCmd.AddCommand(wauconfig.NewConfigCmd())
+	rootCmd.AddCommand(stack.NewStackCmd())
+	rootCmd.AddCommand(NewCompletionCmd())
 
 	// Wire up accessors for sub-packages
 	agent.SetAccessors(GetKernelAddr, GetRole, GetOutputFmt)
