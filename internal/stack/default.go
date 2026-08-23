@@ -1,6 +1,12 @@
 // Package stack - default.go
 //
 // 第一刀 1.1 — 内置 default 9-service stack(per v1.0.0 19 仓真实架构 + D88/D89)。
+// 第三刀 3.1 — 修 health probe 端点(per 真实 binary 启动验证 2026-08-20):
+//   - wau-core           /health   (原来 /healthz 错)
+//   - registry           /health   (原来 /healthz 错)
+//   - wau-profile        TCP 50062 (gRPC only,无 HTTP)
+//   - wau-channel        /health   (原来缺 probe)
+//   - 其他保持
 //
 // 这是 visa demo 的 single-node 默认 stack:1 个 redis + 8 个 wau 服务。
 // 用户可以写 wau-stack.yml 覆盖其中任意字段(参看 schema)。
@@ -58,6 +64,7 @@ func DefaultStack() *Stack {
 				Health:   probeTCP(6379),
 			},
 			// 2. wau-core — 内核
+			//    第三刀 3.1:加 WAU_NET_LIBP2P_DISABLED=true 让本机 demo 不依赖 libp2p 静态 relay
 			{
 				Name:      "wau-core",
 				Kind:      KindBinary,
@@ -67,9 +74,10 @@ func DefaultStack() *Stack {
 				DependsOn: []string{"redis"},
 				Required:  true,
 				Env: map[string]string{
-					"WAU_LOG_LEVEL": "info",
+					"WAU_LOG_LEVEL":            "info",
+					"WAU_NET_LIBP2P_DISABLED":  "true", // visa demo single-node 不需要 p2p
 				},
-				Health: probeHTTP("http://localhost:18400/healthz"),
+				Health: probeHTTP("http://localhost:18400/health"),
 			},
 			// 3. registry — wau-registry-service
 			{
@@ -80,7 +88,7 @@ func DefaultStack() *Stack {
 				GRPCPort:  50052,
 				DependsOn: []string{"wau-core"},
 				Required:  true,
-				Health:    probeHTTP("http://localhost:18401/healthz"),
+				Health:    probeHTTP("http://localhost:18401/health"),
 			},
 			// 4. wau-store
 			{
@@ -100,14 +108,14 @@ func DefaultStack() *Stack {
 				DependsOn: []string{"wau-core"},
 				Health:    probeHTTP("http://localhost:50053/health"),
 			},
-			// 6. wau-profile
+			// 6. wau-profile — gRPC only,无 HTTP endpoint → TCP probe
 			{
 				Name:      "wau-profile",
 				Kind:      KindBinary,
 				Binary:    "wau-profile-service",
 				GRPCPort:  50062,
 				DependsOn: []string{"wau-core"},
-				Health:    probeHTTP("http://localhost:8082/healthz"),
+				Health:    probeTCP(50062),
 			},
 			// 7. wau-llm-router
 			{
@@ -128,7 +136,7 @@ func DefaultStack() *Stack {
 				DependsOn: []string{"wau-core", "wau-llm-router"},
 				Health:    probeHTTP("http://localhost:18402/healthz"),
 			},
-			// 9. wau-channel
+			// 9. wau-channel — 第三刀 3.1:加 /health probe(原来缺)
 			{
 				Name:        "wau-channel",
 				Kind:        KindBinary,
@@ -136,6 +144,7 @@ func DefaultStack() *Stack {
 				HTTPPort:    18410,
 				WebhookPort: 18411,
 				DependsOn:   []string{"wau-core", "registry"},
+				Health:      probeHTTP("http://localhost:18410/health"),
 			},
 			// 10. wau-agent
 			{

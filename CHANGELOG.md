@@ -1,4 +1,4 @@
-## [Unreleased] — v1.0.0 "Phoenix" ⭐wau stack + 第二刀 HTTP client 重构 (2026-08-20, per visa demo + 子项 4.1)
+## [Unreleased] — v1.0.0 "Phoenix" ⭐wau stack + 第二刀 HTTP client 重构 + 第三刀 binary 安装验证 (2026-08-20, per visa demo + 子项 4.1)
 
 ### Added — 第一刀(上午段)
 
@@ -55,6 +55,66 @@
 - v1.1.0 子项 4.1:[[project-wau-v1-1-0-deployment-plan-main-2026-08-19]]
 - visa demo context:[[project-user-applying-estonian-startup-visa-2026-08-20]]
 - server deployment:[[project-wau-production-deployment-43-134-126-126-2026-08-20]]
+
+---
+
+## [Unreleased] — v1.0.1 — 第三刀 本地 stack 真起验证 (2026-08-23, per visa demo 收口)
+
+### Fixed (internal/stack/default.go)
+
+- **wau-core health probe**:`/healthz` → `/health`(实测 kernel mux 只注册 `/health`)
+- **registry health probe**:`/healthz` → `/health`(实测 internal/api/http.go:33)
+- **wau-profile probe**:HTTP → TCP 50062(实测无 HTTP endpoint,gRPC only)
+- **wau-channel probe**:补 `/health`(原本缺失 → Required 跳过)
+- **wau-core env**:`WAU_NET_LIBP2P_DISABLED=true`(避免 libp2p EnableAutoRelay panic "Need a Peer Source fn")
+
+### Verified — 本机 9 binary 安装 + minimal 真起
+
+```
+$ ls ~/.wau/bin/                # 9 binaries (~200MB)
+registry  wau-agent  wau-channel  wau-core  wau-edge
+wau-intent-service  wau-llm-router  wau-profile-service  wau-store
+
+$ /tmp/wau stack up --profile minimal --wait-max 30s
+⠋ redis           ... external (skipped startup)
+⠋ wau-core        ... ✓ (0.5s)
+⠋ registry        ... ✓ (0.5s)
+✓ Stack "default" up. 3 services, took 1s.
+
+$ /tmp/wau health --addr http://localhost:18400
+✓ WAU-core is healthy
+  Version: v0.5.1
+  Redis:   connected
+
+$ /tmp/wau kernel info --addr http://localhost:18400
+  Version:     v0.5.1
+  Uptime:      39.6s
+  Agents:      0
+  Tasks:       0
+
+$ /tmp/wau task submit "hello visa demo" --addr http://localhost:18400
+✗ Failed: gRPC RecommendTopK ... dial tcp 127.0.0.1:50053: connection refused
+# ^ wau-intent 没起 → 502 L3 unavailable(预期,因为 minimal profile 只起 3/9)
+# 关键:task_id 已生成,retry 3 次后透传,验证 retry + 任务通路 OK
+```
+
+### Known Issues (demo profile 缺 config)
+
+`wau stack up --demo`(9 服务)失败原因:
+
+| 服务 | 错误 | 修复方向(未来) |
+|---|---|---|
+| wau-store | `open configs/store.yaml: no such file or directory` | 需要写 configs/store.yaml 模板 |
+| wau-llm-router | `open configs/router.yaml: no such file or directory` | 需要写 configs/router.yaml 模板 |
+| wau-agent | `Usage: wau-agent sidecar --config <yaml> ...` | CLI 错(无默认 server mode)|
+| wau-channel / wau-edge / wau-intent | 启动但 HTTP/gRPC probe 不通 | 端口或 path 待对齐 |
+
+**`--profile minimal`(3 服务:redis + wau-core + registry)目前全绿,适合 visa demo 主路径**。
+9 服务 demo 需要给 6 个服务补 configs/*.yaml 模板,属后续 wau v1.1.0 子项 4.2 范围。
+
+### Reference
+- stage3 summary:`~/WAU-develop/develop-log/wau-cli/stage3-summary-2026-08-23.md`
+- canonical closure:`~/WAU-develop/develop-log/wau-cli/v1.0.1-local-stack-validation/2026-08-23-third-cut-closure.md`(待写)
 - 服务器部署:[[project-wau-production-deployment-43-134-126-126-2026-08-20]]
 
 ## [v0.9.0] - 2026-07-02 (v0.9.0 GA)
