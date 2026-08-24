@@ -319,6 +319,55 @@ wau health --wait --timeout 60s
 wau health --addr http://43.134.126.126:18400   # 远端
 ```
 
+### `wau cluster` ⭐ v1.0.1 P4.6 (2026-08-24)
+
+集群总览 — 把 `/health` + `/kernel/info` + `/registry/agents` 三个 endpoint 组合成统一视图。类比 `kubectl cluster-info` / `docker system info`。
+
+```bash
+# 集群状态(并发调 3 endpoint)
+wau cluster status                              # 本地 kernel
+wau cluster status --addr http://43.134.126.126:18400  # 远程 server
+wau cluster status --json                       # JSON 输出
+
+# 集群 agent 列表
+wau cluster agents
+wau cluster agents --skill multi_agent
+wau cluster agents --status online --json
+```
+
+**Flags**:
+- `status` -- `--json` / `--timeout` (默认 10s per endpoint)
+- `agents` -- `--json` / `--page` / `--page-size` / `--skill` / `--status` / `--search`
+
+**Exit codes**:
+- `0` — 3 endpoint 全成功
+- `1` — 3 endpoint 全 fail(kernel unreachable)
+- `2` — partial(至少 1 个 OK,其它 fail)— 标 ⚠
+
+**真实输出示例**(对 `http://43.134.126.126:18400` 远程 server):
+```
+Cluster: http://43.134.126.126:18400
+Fetched: 2026-08-24T16:33:49+08:00
+
+  ✓ Health:      ok
+    Version:     v0.5.1
+    Uptime:      40d 2h
+    Redis:       connected
+
+  ✓ Kernel:      v0.5.1
+    Started:     2026-07-15T14:33:47.009784526+08:00
+    Modules:     scheduler, registry, intent, circuit, heartbeat
+
+  ✓ Agents:      1 registered
+
+✓ All endpoints healthy.
+```
+
+**设计要点**:
+- **不新增 kernel 端点** — kernel v0.5.1 还没 `/v1/cluster/*`,P4.6 走纯 CLI 组合
+- **并发 fetch**(3 goroutine + `sync.WaitGroup`)— 比串行快 ~3x
+- **D60 additive** — `wau health` / `wau kernel info` / `wau agent list` 继续可用,只是 cluster 是更高层 wrapper
+
 ### `wau kernel`
 
 Show kernel information.

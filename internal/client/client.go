@@ -147,6 +147,14 @@ func (c *Client) Get(ctx context.Context, path string, v interface{}) error {
 	return c.doRequestWithRetry(ctx, http.MethodGet, path, nil, v, RequestOpts{})
 }
 
+// BaseURL 返回配置的 base URL(debug 用,P4.6 cluster status 展示 endpoint)。
+func (c *Client) BaseURL() string {
+	if c == nil {
+		return ""
+	}
+	return c.baseURL
+}
+
 // Post performs a POST request (with retry).
 func (c *Client) Post(ctx context.Context, path string, body, v interface{}) error {
 	return c.doRequestWithRetry(ctx, http.MethodPost, path, body, v, RequestOpts{})

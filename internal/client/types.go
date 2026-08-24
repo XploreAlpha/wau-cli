@@ -11,11 +11,12 @@ type HealthResponse struct {
 
 // KernelInfo is the kernel information.
 type KernelInfo struct {
-	Version     string `json:"version"`
-	StartTime   string `json:"startTime"`
-	Uptime      int64  `json:"uptime"`
-	AgentsCount int    `json:"agentsCount"`
-	TasksCount  int    `json:"tasksCount"`
+	Version     string   `json:"version"`
+	StartTime   string   `json:"startTime"`
+	Uptime      int64    `json:"uptime"`
+	AgentsCount int      `json:"agentsCount"`
+	TasksCount  int      `json:"tasksCount"`
+	Modules     []string `json:"modules,omitempty"` // P4.6 kernel v0.5+ returns
 }
 
 // Agent represents a registered agent.

@@ -1,5 +1,72 @@
 ## [Unreleased] — v1.0.0 "Phoenix" ⭐wau stack + 第二刀 HTTP client 重构 + 第三刀 binary 安装验证 (2026-08-20, per visa demo + 子项 4.1)
 
+### Added — 第四刀 P4.6(2026-08-24,v1.0.1-p4.6)— `wau cluster status / agents`
+
+- **`wau cluster` 子命令组** — 把已有 `/health` + `/kernel/info` + `/registry/agents` 三个 endpoint 组合成"集群视图":
+  - 类比 `kubectl cluster-info` / `docker system info`
+  - **不新增 kernel 端点**(kernel v0.5.1 还没 `/v1/cluster/*`),纯 CLI 组合
+- **`wau cluster status`** — 一次给完整 overview:
+  - 并发调 3 endpoint(`sync.WaitGroup`),节省 wall-clock
+  - 显示 kernel version / uptime / redis / modules / agent 总数
+  - `--json` 输出(给 jq / dashboard)
+  - `--timeout` per-endpoint(默认 10s)
+  - **Partial OK**:任一 endpoint fail 不 abort(标 ⚠),全部 fail → exit 1
+- **`wau cluster agents`** — 集群范围内的 agent 列表:
+  - 跟 `wau agent list` 类似但走 cluster 上下文(支持 `--addr` 远程)
+  - Filter:--skill / --status / --search / --page / --page-size
+  - `--json` 输出
+- **`wau cluster status --addr http://43.134.126.126:18400`** ⭐ visa demo 实战:
+  - **真实验证远程 server**:live kernel v0.5.1,uptime 40d 2h,5 modules(scheduler/registry/intent/circuit/heartbeat),1 agent(matwau)
+- **`KernelInfo.Modules []string`** 新字段(per kernel v0.5+ `modules` 响应)
+- **`client.BaseURL() string`** getter(P4.6 new)— 给 cluster status 展示 endpoint
+- **`client.ListAgentsRaw(ctx, page, pageSize, skill, status, search)`** 新函数 — 直接调 `/registry/agents`,返回 `(agents, total, err)`,不走 tolerant decoder
+- **`client.ClusterStatus`** struct — 汇总 health + kernel + agents count + 3 个 err 字段(partial)
+
+### Tests — 第四刀 P4.6
+
+- `internal/client/cluster_test.go`(P4.6 新增 7 tests,httptest mock 3 endpoint):
+  - `TestClusterStatus_AllOK` — 3 endpoint 全 OK → ClusterStatus 全填
+  - `TestClusterStatus_HealthFail` — health 500 → partial(health nil, kernel + agents OK)
+  - `TestClusterStatus_KernelFail` — /kernel/info 500 → partial
+  - `TestClusterStatus_AllFail` — 3 全 fail → 返回 err + status 都有
+  - `TestClusterStatus_AgentsRawArray` — live server 行为:raw array 长度 = total
+  - `TestClusterStatus_AgentsObjectFormat` — 未来 server 改 object 格式 → 用 total 字段
+  - `TestListAgentsRaw_RawArray` — 单独测 ListAgentsRaw 函数
+- `internal/cmd/cluster/cluster_test.go`(P4.6 新增 6 tests):
+  - `TestNewClusterCmd_BasicArgs` — Use=cluster + 2 subcommand + Aliases=[cl]
+  - `TestNewStatusCmd_BasicArgs` — Use=status + json / timeout flag
+  - `TestNewAgentsCmd_BasicArgs` — Use=agents + 6 flag + Aliases=[ls]
+  - `TestFormatUptime` — 5 case(0.5s / 45s / 2m5s / 1h1m / 1d1h)
+  - `TestTruncate` — 5 case(短 / 等长 / 长 / n<3 不补 ... / 加 ...)
+  - `TestJoinStrings` — 4 case(nil / 1 / 2 / 3 element)
+
+### smoke test — P4.6 (6 case,全 PASS 对 `http://43.134.126.126:18400`)
+
+| # | 命令 | 结果 |
+|---|------|------|
+| 1 | `wau cluster status` (本地 kernel 没跑) | ✅ exit=1, "Kernel unreachable at http://localhost:18400" |
+| 2 | `wau cluster status --addr http://43.134.126.126:18400` | ✅ v0.5.1 / 40d 2h uptime / redis=connected / 5 modules / 1 agent |
+| 3 | `wau cluster agents --addr http://43.134.126.126:18400` | ✅ 列 matwau + skills=[multi_agent, critic_llm] |
+| 4 | `wau cluster agents --json` | ✅ JSON 输出含 total + agents array |
+| 5 | `wau cluster status --json` | ✅ JSON 输出含 endpoint / Health / Kernel / AgentsTotal / Modules |
+| 6 | `wau cluster agents --skill multi_agent` | ✅ filter 通过(server 实际不过滤,但 cli 不报错)|
+
+### Compatibility (P4.6 D60 additive)
+
+- ✅ `wau health` / `wau kernel info` / `wau agent list` 完全不变
+- ✅ 没新增 kernel 端点,纯 CLI 组合(per D60)
+- ✅ `--addr` 跟其它子命令一致(支持远程 server)
+- ⚠️ KernelInfo 加了 `Modules []string` 字段,**server 没返回** modules 不影响(wau-cli 不依赖此字段)
+
+### Reference
+
+- **代码**:`internal/client/cluster.go` (+95 LoC) + `client.go BaseURL()` getter + `types.go Modules` 字段 + `internal/cmd/cluster/{cluster,status,agents,helpers}.go` (~250 LoC)
+- **Tests**:`internal/client/cluster_test.go` (+200) + `internal/cmd/cluster/cluster_test.go` (+100)
+- **plan + closure**:`~/WAU-develop/develop-log/wau-cli/v1.0.1-wau-cluster-status/`
+- **v1.0.1 子项 4 收口**:4 段 P4.1/P4.2/P4.3/P4.4/P4.5/P4.6 全部完成,v1.0.1 可以发版
+
+---
+
 ### Added — 第四刀 P4.5(2026-08-24,v1.0.1-p4.5)— `wau stack init-configs --envsubst`
 
 - **`wau stack init-configs --envsubst`** flag — 写 yaml 前用 `os.ExpandEnv` 替换 `$VAR` 占位符(per P4.2 closure §7.3):

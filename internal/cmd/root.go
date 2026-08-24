@@ -11,6 +11,7 @@ import (
 
 	"github.com/wau/wau-cli/internal/cmd/agent"
 	"github.com/wau/wau-cli/internal/cmd/auth"
+	"github.com/wau/wau-cli/internal/cmd/cluster"
 	"github.com/wau/wau-cli/internal/cmd/stack"
 	"github.com/wau/wau-cli/internal/cmd/task"
 	wauconfig "github.com/wau/wau-cli/internal/cmd/config"
@@ -89,7 +90,8 @@ func init() {
 	rootCmd.AddCommand(task.NewTaskCmd())
 	rootCmd.AddCommand(wauconfig.NewConfigCmd())
 	rootCmd.AddCommand(stack.NewStackCmd())
-	rootCmd.AddCommand(auth.NewAuthCmd()) // P4.3 wau auth login/logout/whoami
+	rootCmd.AddCommand(auth.NewAuthCmd())    // P4.3 wau auth login/logout/whoami
+	rootCmd.AddCommand(cluster.NewClusterCmd()) // P4.6 wau cluster status/agents
 	rootCmd.AddCommand(NewCompletionCmd())
 	rootCmd.AddCommand(stack.NewLogCmd()) // 顶层 `wau log <svc>` alias
 
@@ -98,6 +100,7 @@ func init() {
 	task.SetAccessors(GetKernelAddr, GetRole, GetOutputFmt)
 	wauconfig.SetAccessors(GetKernelAddr, GetOutputFmt)
 	auth.SetAccessors(GetKernelAddr, GetRole) // P4.3
+	cluster.SetAccessors(GetKernelAddr, GetRole) // P4.6
 }
 
 // initConfig reads in config file and ENV variables if set.
