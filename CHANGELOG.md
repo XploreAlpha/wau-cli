@@ -1,5 +1,53 @@
 ## [Unreleased] — v1.0.0 "Phoenix" ⭐wau stack + 第二刀 HTTP client 重构 + 第三刀 binary 安装验证 (2026-08-20, per visa demo + 子项 4.1)
 
+### Added — 第四刀 P4.1(2026-08-24,v1.0.1-p4.1)— `wau log` + `wau stack logs`
+
+- **`wau log <service>`** + **`wau stack logs [service]`** 子命令(per 子项 4.1 + OS CLI 定位):
+  - 类比 `docker logs` / `kubectl logs` / `journalctl -u`
+  - 多服务并行 fanout(类似 `docker compose logs`),每服务带 ANSI 颜色前缀(8-color cycler)
+  - `--follow/-f` 走 `tail -F`(POSIX,自动处理 rotate/truncate,无需新 dep)
+  - `--lines/-n N` 默认 50(`0` = 全部)
+  - `--grep REGEX` 过滤(支持正则,坏 regex → 清晰错误)
+  - `--since 5m` 时间窗口(解析 RFC3339Nano,无 ts 行向后兼容不丢)
+  - `--no-color` 关彩色
+  - SIGINT/SIGTERM 干净退出(走 `signal.NotifyContext` + ctx cancel → kill tail 子进程)
+- **`internal/stack/process.go` 新 helper**:`LogPath(dir, svc)` + `FollowLog(ctx, path, sw, filter)` + `SafeWriter` (mutex-protected,多服务 fanout 不交错)
+- **`internal/cmd/stack/log.go`**(~450 LoC,含测试):
+  - `NewLogCmd()` / `NewStackLogsCmd()` factory(exported,顶层 + stack 下双挂)
+  - `runLog` / `runStackLogs` cobra RunE
+  - `showServiceLog` / `fanoutLogs` / `readAndPrint` / `buildFilter` / `parseLogTimestamp` / `colorPrefix` / `prefixedWriter` / `expandHome`
+  - `redis` external 服务在 fanout 中自动 skip
+
+### Tests — 第四刀 P4.1
+
+- `internal/cmd/stack/log_test.go`:18 tests —
+  - `hasService` / `serviceNames` / `LogPath` 基础辅助
+  - `buildFilter`:nil / grep only / bad regex / since only 4 case
+  - `readAndPrint`:basic tail-N / with grep filter
+  - `parseLogTimestamp`:RFC3339Nano / 短格式 / 无 ts / 无效日期
+  - `colorPrefix`:有 / 无 color
+  - `prefixedWriter`:Write 加 [svc] 前缀
+  - `NewLogCmd` / `NewStackLogsCmd` flag 注册完整性
+  - `runLog`:服务不存在 / log 文件不存在
+  - `runStackLogs`:所有服务 fanout (--no-color)
+- 全 PASS,无回归(stack:18 P4.1 + 已有 28 P3 = 46)
+- `TestLsCmd_EmptyState` host-state-dependent 已知问题:依赖 `~/.wau/run/default.json` 为空,本机之前 stage3 测试遗留 state 导致 fail;与 P4.1 无关,不在 P4.1 修复范围(可改用 `t.Setenv("HOME", t.TempDir())` 隔离,后续 PR)
+
+### Compatibility (P4.1 D60 additive)
+
+- `wau stack up / down / ls` 0 改
+- `wau stack logs` / `wau log` 是 **纯新增**(不影响现有命令)
+- 去掉了之前误加的 Aliases=["logs"] / ["log"](造成 `wau stack logs` 无参数时走到 NewLogCmd 的 ExactArgs(1) 报错,smoke test 发现并修复)
+- 不引入新 dep(沿用 stdlib + `os/exec tail -F`)
+- 顶层 `wau log <service>` 作为 `wau stack logs <service>` 的便捷 alias
+
+### Reference
+- v1.1.0 子项 4.1:[[project-wau-v1-1-0-deployment-plan-main-2026-08-19]]
+- visa demo context:[[project-user-applying-estonian-startup-visa-2026-08-20]]
+- server deployment:[[project-wau-production-deployment-43-134-126-126-2026-08-20]]
+
+---
+
 ### Added — 第一刀(上午段)
 
 - **`wau stack up / down / ls`** 子命令族(per visa demo + v1.1.0 子项 4.1,2026-08-20):

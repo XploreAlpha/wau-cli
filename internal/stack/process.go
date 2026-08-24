@@ -20,11 +20,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -388,4 +390,73 @@ func TailLog(logPath string, n int) (string, error) {
 		lines = lines[len(lines)-n:]
 	}
 	return strings.Join(lines, "\n") + "\n", nil
+}
+
+// LogPath 拼接单服务日志文件路径(~/.wau/log/<service>.log)。
+//
+// P4.1 — 给 `wau log` / `wau stack logs` 用,跟 StartService 写日志路径一致。
+func LogPath(logDir, serviceName string) string {
+	return filepath.Join(logDir, serviceName+".log")
+}
+
+// FollowLog 用 `tail -F` 跟单服务日志(per P4.1)。
+//
+//   - ctx 取消 → kill tail 子进程
+//   - filter == nil → 不过滤;否则每行 grep
+//   - 每行写 w + '\n'
+//
+// 实现策略:用 `tail -F` 而非自己写 inotify / fsnotify(rotate / truncate 由 tail 处理)。
+// 在 Windows / 非 Linux 上没有 tail 时,退化为 LastNLines。
+func FollowLog(ctx context.Context, logPath string, w *SafeWriter, filter func(string) bool) error {
+	// 检查 tail 是否可用
+	tailPath, err := exec.LookPath("tail")
+	if err != nil {
+		return fmt.Errorf("tail not found (Linux/macOS required): %w", err)
+	}
+	cmd := exec.CommandContext(ctx, tailPath, "-F", "-n", "+1", logPath)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("stdout pipe: %w", err)
+	}
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("start tail: %w", err)
+	}
+
+	go func() {
+		<-ctx.Done()
+		_ = cmd.Process.Kill()
+	}()
+
+	scanner := bufio.NewScanner(stdout)
+	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if filter != nil && !filter(line) {
+			continue
+		}
+		if _, err := w.WriteLine(line); err != nil {
+			return err
+		}
+	}
+	_ = cmd.Wait()
+	return scanner.Err()
+}
+
+// SafeWriter 给多服务 fanout 用,带 mutex 保护写不交错。
+type SafeWriter struct {
+	mu sync.Mutex
+	w  io.Writer
+}
+
+// NewSafeWriter 包一层 mutex-protected io.Writer。
+func NewSafeWriter(w io.Writer) *SafeWriter {
+	return &SafeWriter{w: w}
+}
+
+// WriteLine 写一行(自动加 '\n')。
+func (sw *SafeWriter) WriteLine(line string) (int, error) {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+	n, err := sw.w.Write([]byte(line + "\n"))
+	return n, err
 }

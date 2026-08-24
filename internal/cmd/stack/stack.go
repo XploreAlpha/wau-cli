@@ -24,6 +24,8 @@ Subcommands:
   up       Bring the stack up (start all services in dependency order)
   down     Bring the stack down (stop all services gracefully)
   ls       List services with status (alias: status, ps)
+  logs     Show logs for one or all services
+  log      Show logs for a single service
 
 Examples:
   # Start the full demo stack (9 services)
@@ -35,6 +37,9 @@ Examples:
   # List running services
   wau stack ls
 
+  # Tail logs (P4.1, like docker compose logs)
+  wau stack logs --follow
+
   # Stop everything
   wau stack down
 
@@ -45,6 +50,8 @@ See also: wau service <name> {start,stop,restart,logs} for per-service control.`
 	cmd.AddCommand(newUpCmd())
 	cmd.AddCommand(newDownCmd())
 	cmd.AddCommand(newLsCmd())
+	cmd.AddCommand(NewLogCmd())
+	cmd.AddCommand(NewStackLogsCmd())
 
 	return cmd
 }

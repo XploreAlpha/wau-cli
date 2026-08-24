@@ -108,6 +108,14 @@ wau stack down --force                # 强杀(即使失败服务)
 
 # 自定义 stack 文件
 wau stack up --file /path/to/wau-stack.yml
+
+# 看日志(第四刀 P4.1,2026-08-24)
+wau log wau-core                          # 最后 50 行(顶层 alias)
+wau log wau-core --follow                 # tail -F,Ctrl-C 退出
+wau log wau-core --lines 200 --grep ERROR # 最后 200 行 + 过滤
+wau log wau-core --since 5m               # 最近 5 分钟
+wau stack logs                            # 所有服务并行 fanout
+wau stack logs wau-core --no-color        # 单服务,关彩色
 ```
 
 **内置 default 9-service stack**(per 19 仓真实架构):
@@ -116,6 +124,35 @@ wau stack up --file /path/to/wau-stack.yml
 **Profiles**:
 - `demo` — 9 服务全起(visa 拍板,2026-08-20)
 - `minimal` — 只起 redis + wau-core + registry(debug 用)
+
+### `wau log` / `wau stack logs` ⭐ v1.0.1 P4.1 (2026-08-24)
+
+Show recent or follow logs for stack services. Equivalent to `docker logs` / `kubectl logs` / `journalctl -u`.
+
+```bash
+# 单服务
+wau log wau-core                  # 最后 50 行
+wau log wau-core --follow         # tail -F
+wau log wau-core --lines 200      # 最后 200 行(0 = 全部)
+wau log wau-core --grep ERROR     # 正则过滤(grep regex)
+wau log wau-core --since 5m       # 最近 5 分钟(解析 RFC3339Nano ts)
+wau log wau-core --no-color       # 关彩色
+
+# 多服务 fanout(每服务带颜色前缀)
+wau stack logs                    # 所有 loggable 服务并行
+wau stack logs wau-core           # 单服务(同 `wau log`)
+wau stack logs --follow           # 全部 tail -F
+wau stack logs --grep "ERROR|panic"
+```
+
+**Flags**: `--follow/-f` · `--lines/-n` · `--grep` · `--since` · `--no-color`
+
+**实现**:
+- `--follow` 走 POSIX `tail -F`(处理 rotate/truncate,无需新 dep;Linux/macOS)
+- 非 follow 走 stdlib read+filter+tail-N
+- 多服务 fanout 用 `sync.WaitGroup` + `SafeWriter`(mutex 保护,多 goroutine 写 stdout 不交错)
+- 颜色:8-color cycler(cyan/yellow/magenta/green/blue/red/bright cyan/bright yellow),`--no-color` 关
+- `redis` external 服务在 fanout 中自动 skip(无 log file)
 
 ### `wau health`
 

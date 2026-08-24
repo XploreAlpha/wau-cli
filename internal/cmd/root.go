@@ -89,6 +89,7 @@ func init() {
 	rootCmd.AddCommand(wauconfig.NewConfigCmd())
 	rootCmd.AddCommand(stack.NewStackCmd())
 	rootCmd.AddCommand(NewCompletionCmd())
+	rootCmd.AddCommand(stack.NewLogCmd()) // 顶层 `wau log <svc>` alias
 
 	// Wire up accessors for sub-packages
 	agent.SetAccessors(GetKernelAddr, GetRole, GetOutputFmt)
