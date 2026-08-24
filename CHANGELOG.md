@@ -1,5 +1,54 @@
 ## [Unreleased] — v1.0.0 "Phoenix" ⭐wau stack + 第二刀 HTTP client 重构 + 第三刀 binary 安装验证 (2026-08-20, per visa demo + 子项 4.1)
 
+### Added — 第四刀 P4.4(2026-08-24,v1.0.1-p4.4)— `wau stack restart [service...]`
+
+- **`wau stack restart [service...]`** 子命令 — `down <svc>` + `up <svc>` 的便捷组合(per P4.3 closure §8.1):
+  - 类比 `docker compose restart` / `kubectl rollout restart` / `systemctl restart <svc>`
+  - **复用** `internal/stack/process.go` 的 `pm.Stop` / `pm.Start` / `KillProcessGroup` + `rt.SetStatus`(per P4.1 / P4.2)
+  - **抽出 helpers** `stopOne` / `startOne` 隔离 down / up 阶段
+- **三种用法**(从 visa demo 真实场景):
+  - `wau stack restart` — 全栈按 topo 反序 down + 正序 up(改 stack 配置后)
+  - `wau stack restart wau-core` — 单服务(改 init-configs 后)
+  - `wau stack restart wau-core wau-router` — 多服务(同时滚更多个组件)
+- **Flags**:`--file` / `--profile`(跟 up/down 一致)+ `--wait-max` (默认 60s,health probe 超时)
+- **Aliases**:`reload`(避免跟 `kubectl rollout restart` 混淆)
+- **Exit codes**:
+  - `0` — 全部成功
+  - `1` — 有 service start 失败(进程没起来)
+  - `2` — 全部 start 成功但 health check 没通过 / 有 service stop 失败(警告级)
+- **UX 改进**(per 真实 smoke):
+  - 进程已起但 health check 超时 → 标 `⚠ health warning (process up, pid N)` 而**不是** `✗`
+  - 保留 PID 到 runtime,`wau stack ls` 仍能看 new process
+
+### Tests — 第四刀 P4.4
+
+- `internal/cmd/stack/restart_test.go`(P4.4 新增 3 tests):
+  - `TestNewRestartCmd_BasicArgs` — Use=restart + Aliases=[reload] + 3 flag(file/profile/wait-max)+ wait-max default=1m0s
+  - `TestReverseStrings` — 4 case(普通 / nil / single / reverse mutate 不动原 slice)
+  - `TestRunRestart_InvalidService` — args=[nonexistent] → "not in stack" error,exit=1
+
+### smoke test — P4.4 (3 case,全 PASS)
+
+| # | 命令 | 结果 |
+|---|------|------|
+| 1 | `wau stack restart wau-channel --wait-max 30s` | ✅ PID 335589 → 336795,status=running |
+| 2 | `wau stack restart wau-intent wau-edge --wait-max 30s` | ✅ 两个服务 PID 都变(332456→338405 / 332962→337726)|
+| 3 | `wau stack restart nonexistent` | ✅ "service "nonexistent" not in stack (use 'wau stack ls'...)" exit=1 |
+
+### Compatibility (P4.4 D60 additive)
+
+- ✅ `wau stack up / down` 完全不变,restart 是新 subcommand
+- ✅ 已有 init-configs(P4.2)+ log-follow(P4.1)+ auth(P4.3)+ 全栈 up/down 全部兼容
+- ⚠️ restart 的 PID/health warning 区分(`⚠` vs `✗`)是**新** UX,可能跟用户期望的"非 0 即成功"直觉不符;用户脚本可检查 exit code (0/1/2)
+
+### Reference
+
+- **代码**:`internal/cmd/stack/restart.go` (200 行) + `restart_test.go` (90 行)
+- **plan + closure**:`~/WAU-develop/develop-log/wau-cli/v1.0.1-wau-stack-restart/`
+- **后续** P4.5 `wau stack init-configs --envsubst` + P4.6 `wau cluster status`
+
+---
+
 ### Added — 第四刀 P4.3(2026-08-24,v1.0.1-p4.3)— `wau auth login / logout / whoami`
 
 - **顶层 `wau auth login / logout / whoami`** 子命令组(per D74 JWT 凭证流程):

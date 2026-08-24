@@ -23,6 +23,7 @@ Equivalent to docker compose / kubectl for a single-node WAU deployment.
 Subcommands:
   up       Bring the stack up (start all services in dependency order)
   down     Bring the stack down (stop all services gracefully)
+  restart  Restart one or more services (down + up)
   ls       List services with status (alias: status, ps)
   logs     Show logs for one or all services
   log      Show logs for a single service
@@ -49,6 +50,7 @@ See also: wau service <name> {start,stop,restart,logs} for per-service control.`
 
 	cmd.AddCommand(newUpCmd())
 	cmd.AddCommand(newDownCmd())
+	cmd.AddCommand(NewRestartCmd()) // P4.4
 	cmd.AddCommand(newLsCmd())
 	cmd.AddCommand(NewLogCmd())
 	cmd.AddCommand(NewStackLogsCmd())

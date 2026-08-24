@@ -195,6 +195,36 @@ wau stack init-configs --dry-run
 
 **前提**:跑完后 `wau stack up --demo` 才能完整启动 wau-store / wau-llm-router / wau-edge / wau-channel(否则还是 stage3 的 "config not found" 报错)。
 
+### `wau stack restart` ⭐ v1.0.1 P4.4 (2026-08-24)
+
+重启服务 — `down <svc>` + `up <svc>` 的便捷组合。类比 `docker compose restart` / `kubectl rollout restart`。
+
+```bash
+wau stack restart                       # 全栈(topo 反序 down + 正序 up)
+wau stack restart wau-core              # 单服务
+wau stack restart wau-core wau-router   # 多服务
+wau stack restart --wait-max 120s       # 自定义 health probe 超时
+wau stack restart --file my.yml         # 自定义 stack file
+wau stack reload wau-edge               # alias 同样工作
+```
+
+**Flags**:
+- `--file <path>` — 自定义 wau-stack.yml
+- `--profile <name>` — 应用 profile 过滤
+- `--wait-max <duration>` — health probe 超时(默认 60s)
+
+**Exit codes**:
+- `0` — 全部成功
+- `1` — 有 service start 失败(进程没起来)
+- `2` — 全部 start 成功但 health check 没通过 / 有 service stop 失败
+
+**典型场景**:
+- 改完 `~/.wau/configs/<service>.yaml` → `wau stack restart <service>`(只重启该 service)
+- 全栈滚更 → `wau stack restart`
+- 改了 init-configs(P4.2)→ `wau stack restart wau-router` 不动 redis / wau-core
+
+**UX 注意**:health probe 失败时显示 `⚠ health warning (process up, pid N)` 而不是 `✗` — 进程已起但还没 ready,`wau stack ls` 能看到 status=running。
+
 ### `wau auth` ⭐ v1.0.1 P4.3 (2026-08-24)
 
 Manage WAU user authentication. Equivalent to `docker login` / `npm login` / `kubectl auth whoami`.

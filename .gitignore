@@ -36,3 +36,6 @@ Thumbs.db
 # Build artifacts
 dist/
 build/
+
+# Runtime state (wau-stack local data)
+var/
