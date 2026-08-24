@@ -184,14 +184,39 @@ wau stack init-configs --dry-run
 | `wau-edge` | `edge.yaml` | Edge 入口(WS / OpenAI compat / dashboard / newapi) |
 | `wau-channel` | `channel.yaml` | 通道(telegram / discord / slack / feishu / dingtalk / qq / email / webhook) |
 
-**Flags**: `--service` · `--output-dir` (default `~/.wau/configs`) · `--force` · `--dry-run`
+**Flags**: `--service` · `--output-dir` (default `~/.wau/configs`) · `--force` · `--dry-run` · `--envsubst` ⭐ P4.5
 
 **行为**:
 - 文件已存在 → 默认 skip(提示 `--force`)
 - `--force` → overwrite
 - `--dry-run` → 只 print,不写
 - atomic write(`.tmp` + `rename`,无 partial file)
-- **不展开** env placeholder(如 `$WAU_STORE_PG_DSN`)— 由部署层脚本替换
+- **默认不展开** env placeholder(如 `$WAU_STORE_PG_DSN`)— 由部署层脚本替换(production path)
+- **`--envsubst`** ⭐ P4.5 — 写文件前用 `os.ExpandEnv` 替换 `$VAR`(visa demo / 本地 dev)
+
+**`--envsubst` 用法**(v1.0.1 P4.5):
+```bash
+# Visa demo / local dev: env vars 替换占位符
+export WAU_STORE_PG_DSN="postgres://demo:demo@localhost:5432/wau_store"
+export WAU_STORE_PG_PASSWORD="pgpass"
+export WAU_STORE_REDIS_PASSWORD="redispass"
+export WAU_STORE_ADMIN_TOKEN="admintoken"
+wau stack init-configs --envsubst --force
+
+# Dry-run 看看哪些 $VAR 被引用、env 是否 set
+wau stack init-configs --dry-run --envsubst
+# Variables referenced: ✓$WAU_STORE_PG_DSN, ✗$WAU_STORE_REDIS_PASSWORD, ...
+
+# ⚠ 未 set 的 env var → 替换成 "" → exit 2 警告
+unset WAU_STORE_REDIS_PASSWORD
+wau stack init-configs --envsubst --force
+# ⚠ wau-store: 1 env var(s) were empty (will be replaced with ""): [WAU_STORE_REDIS_PASSWORD]
+# exit 2
+```
+
+**典型 workflow**:
+- **本地 dev / visa demo**: 用 `--envsubst`(快)
+- **生产部署**: 不传 `--envsubst`,保留 `$VAR` 字面值,让 `wau-deploy` 脚本(per D55 SOP)替换
 
 **前提**:跑完后 `wau stack up --demo` 才能完整启动 wau-store / wau-llm-router / wau-edge / wau-channel(否则还是 stage3 的 "config not found" 报错)。
 

@@ -1,6 +1,8 @@
 // Package stack - initconfigs.go
 //
-// P4.2 (v1.0.1, 2026-08-24) — `wau stack init-configs` 子命令。
+// P4.2 + P4.5 (v1.0.1, 2026-08-24) — `wau stack init-configs` 子命令。
+//
+// P4.5 加 --envsubst:写 yaml 前用 os.ExpandEnv 替换 $VAR 占位符。
 //
 // 类比:
 //   - docker compose config
@@ -12,19 +14,22 @@
 //   - 默认写 ~/.wau/configs/<service>.yaml
 //   - idempotent:文件已存在默认 skip(除非 --force)
 //   - --dry-run:不写,只 print plan
+//   - --envsubst:写文件前用 os.ExpandEnv 替换 $VAR(per P4.5)
 //   - 不修改服务 source(D60 additive)
 //
 // 用法:
-//   wau stack init-configs                       # 写所有 4 个到 ~/.wau/configs/
-//   wau stack init-configs --service wau-store   # 单服务
-//   wau stack init-configs --output-dir /tmp/x   # 自定义目录
-//   wau stack init-configs --force               # 覆盖已有
-//   wau stack init-configs --dry-run             # 只看 plan
+//   wau stack init-configs                          # 写所有 4 个到 ~/.wau/configs/(保留 $VAR)
+//   wau stack init-configs --envsubst --force      # 用 env var 替换占位符(visa demo)
+//   wau stack init-configs --service wau-store     # 单服务
+//   wau stack init-configs --output-dir /tmp/x     # 自定义目录
+//   wau stack init-configs --force                 # 覆盖已有
+//   wau stack init-configs --dry-run               # 只看 plan
 package stack
 
 import (
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -36,6 +41,7 @@ var (
 	flagInitOutputDir string
 	flagInitForce     bool
 	flagInitDryRun    bool
+	flagInitEnvSubst  bool // P4.5
 )
 
 // NewInitConfigsCmd creates the `wau stack init-configs` subcommand.
@@ -50,6 +56,11 @@ file to start: wau-store, wau-llm-router, wau-edge, wau-channel.
 
 By default writes to ~/.wau/configs/<service>.yaml. Existing files are skipped
 unless --force is given.
+
+Templates contain $VAR placeholders for secrets (PG DSN, Redis password, admin
+token). Use --envsubst to substitute them from your environment before writing
+(useful for visa demo / local dev); production deployments should leave them
+literal so the deploy script (wau-deploy) can substitute.
 
 After running this command, you can ` + "`wau stack up --demo`" + ` to bring up all 9 services.
 
@@ -67,7 +78,11 @@ Examples:
   wau stack init-configs --force
 
   # Preview only (don't write)
-  wau stack init-configs --dry-run`,
+  wau stack init-configs --dry-run
+
+  # P4.5: replace $VAR with env values (local visa demo)
+  export WAU_STORE_PG_DSN="postgres://x:y@localhost/wau_store"
+  wau stack init-configs --envsubst --force`,
 		Aliases: []string{"init-config"},
 		Args:    cobra.NoArgs,
 		RunE:    runInitConfigs,
@@ -80,6 +95,8 @@ Examples:
 		"overwrite existing config files")
 	cmd.Flags().BoolVar(&flagInitDryRun, "dry-run", false,
 		"show what would be written, but don't actually write")
+	cmd.Flags().BoolVar(&flagInitEnvSubst, "envsubst", false,
+		"P4.5: substitute $VAR placeholders from env before writing (use for local dev/visa demo)")
 	return cmd
 }
 
@@ -108,6 +125,33 @@ func runInitConfigs(cmd *cobra.Command, args []string) error {
 		for _, t := range templates {
 			fmt.Fprintf(w, "  [%s] %s (%d bytes)\n", t.Service, t.Filename, len(t.Contents))
 		}
+		// P4.5 dry-run 也提示 $VAR 占位符
+		if flagInitEnvSubst {
+			fmt.Fprintln(w, "\nWith --envsubst, $VAR placeholders will be expanded from env.")
+			allVars := map[string]bool{}
+			for _, t := range templates {
+				for _, v := range initconfigs.ExtractEnvVars(t.Contents) {
+					allVars[v] = true
+				}
+			}
+			if len(allVars) > 0 {
+				fmt.Fprint(w, "Variables referenced: ")
+				first := true
+				for v := range allVars {
+					if !first {
+						fmt.Fprint(w, ", ")
+					}
+					first = false
+					set := os.Getenv(v) != ""
+					marker := "✓"
+					if !set {
+						marker = "✗" // 未 set → 替换成 ""
+					}
+					fmt.Fprintf(w, "%s$%s", marker, v)
+				}
+				fmt.Fprintln(w)
+			}
+		}
 		return nil
 	}
 
@@ -115,6 +159,7 @@ func runInitConfigs(cmd *cobra.Command, args []string) error {
 		OutputDir: flagInitOutputDir,
 		Force:     flagInitForce,
 		DryRun:    false,
+		EnvSubst:  flagInitEnvSubst,
 	}
 	results := writer.WriteAll(templates)
 
@@ -137,13 +182,48 @@ func runInitConfigs(cmd *cobra.Command, args []string) error {
 	if errored > 0 {
 		fmt.Fprintf(w, ", %d errored", errored)
 	}
+
+	// P4.5 envsubst warning:写完后检查哪些 template 里的 $VAR 对应**空** env var
+	// (os.ExpandEnv 把空 env 替换成 "",所以写完后文件里没有 $VAR 字面值,只能从 template 反推)
+	unsubstituted := 0
+	if flagInitEnvSubst && wrote > 0 {
+		for _, r := range results {
+			if r.Status != "wrote" {
+				continue
+			}
+			// 从原 template 拿 var 列表(而不是从写完文件读)
+			var tplVars []string
+			for _, t := range templates {
+				if t.Service == r.Service {
+					tplVars = initconfigs.ExtractEnvVars(t.Contents)
+					break
+				}
+			}
+			emptyVars := []string{}
+			for _, v := range tplVars {
+				if os.Getenv(v) == "" {
+					emptyVars = append(emptyVars, v)
+				}
+			}
+			if len(emptyVars) > 0 {
+				unsubstituted++
+				fmt.Fprintf(w, "⚠ %s: %d env var(s) were empty (will be replaced with \"\"): %v\n",
+					r.Service, len(emptyVars), emptyVars)
+			}
+		}
+	}
+
 	if flagInitService == "" && wrote > 0 {
 		fmt.Fprintf(w, "\nNext: wau stack up --demo")
 	}
 	fmt.Fprintln(w)
 
 	if errored > 0 {
-		return fmt.Errorf("%d config(s) failed to write", errored)
+		return exitCodeError(1)
+	}
+	if unsubstituted > 0 {
+		// exit code 2 — 警告级(进程可能能起但密码/token 是空)
+		return exitCodeError(2)
 	}
 	return nil
 }

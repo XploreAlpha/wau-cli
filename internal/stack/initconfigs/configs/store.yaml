@@ -5,7 +5,7 @@
 # wau-store 默认配置(per Stage 3.1 #11, 2026-07-03)
 #
 # 用法: wau-store -config configs/store.yaml
-# 注意:DSN / Redis password / admin token 用 $ENV 占位
+# 注意:DSN / Redis password / admin token 用 env 占位符
 #       由 wau-deploy 脚本(per [[project-v0-9-0-deploy-to-server-sop-2026-07-01]])替换
 
 version: "0.9.0-stage1-#11"

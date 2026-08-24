@@ -148,4 +148,120 @@ func resetInitConfigsFlags() {
 	flagInitOutputDir = "~/.wau/configs"
 	flagInitForce = false
 	flagInitDryRun = false
+	flagInitEnvSubst = false
+}
+
+// ─── P4.5 envsubst flag tests ───────────────────────────────────────────────
+
+func TestNewInitConfigsCmd_EnvSubstFlag(t *testing.T) {
+	cmd := NewInitConfigsCmd()
+	if cmd.Flags().Lookup("envsubst") == nil {
+		t.Fatal("--envsubst flag missing")
+	}
+}
+
+func TestRunInitConfigs_EnvSubstDryRun_ShowsVars(t *testing.T) {
+	t.Setenv("WAU_STORE_PG_DSN", "postgres://demo:demo@localhost:5432/x")
+	t.Setenv("WAU_STORE_REDIS_PASSWORD", "")
+	t.Setenv("WAU_STORE_ADMIN_TOKEN", "token123")
+
+	resetInitConfigsFlags()
+	flagInitDryRun = true
+	flagInitEnvSubst = true
+	defer resetInitConfigsFlags()
+
+	cmd := NewInitConfigsCmd()
+	cmd.SetArgs([]string{"--service", "wau-store", "--dry-run", "--envsubst"})
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	// 应显示 "Variables referenced: ..." 一行
+	if !strings.Contains(got, "Variables referenced") {
+		t.Errorf("missing 'Variables referenced' in output:\n%s", got)
+	}
+	// WAU_STORE_PG_DSN 是 set 的 → ✓ 标记
+	if !strings.Contains(got, "✓$WAU_STORE_PG_DSN") {
+		t.Errorf("missing '✓$WAU_STORE_PG_DSN' marker:\n%s", got)
+	}
+	// WAU_STORE_REDIS_PASSWORD 是空 → ✗ 标记
+	if !strings.Contains(got, "✗$WAU_STORE_REDIS_PASSWORD") {
+		t.Errorf("missing '✗$WAU_STORE_REDIS_PASSWORD' marker:\n%s", got)
+	}
+}
+
+func TestRunInitConfigs_EnvSubst_WritesExpanded(t *testing.T) {
+	t.Setenv("WAU_STORE_PG_DSN", "postgres://demo:demo@localhost:5432/x")
+	t.Setenv("WAU_STORE_PG_PASSWORD", "pgpass")
+	t.Setenv("WAU_STORE_REDIS_PASSWORD", "redispass")
+	t.Setenv("WAU_STORE_ADMIN_TOKEN", "admintoken")
+
+	resetInitConfigsFlags()
+	dir := t.TempDir()
+	cmd := NewInitConfigsCmd()
+	cmd.SetArgs([]string{
+		"--service", "wau-store",
+		"--output-dir", dir,
+		"--envsubst",
+		"--force",
+	})
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	// 检查写出文件内容
+	data, err := os.ReadFile(filepath.Join(dir, "store.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "$WAU_STORE_PG_DSN") {
+		t.Errorf("$VAR not substituted in written file:\n%s", string(data))
+	}
+	if !strings.Contains(string(data), "postgres://demo:demo@localhost:5432/x") {
+		t.Errorf("expanded DSN not in file:\n%s", string(data))
+	}
+	// 全部 set 后应 exit 0(无 unsubstituted warning)
+	if !strings.Contains(out.String(), "1 wrote") {
+		t.Errorf("want '1 wrote', got:\n%s", out.String())
+	}
+}
+
+func TestRunInitConfigs_EnvSubst_MissingEnv_WarnsExit2(t *testing.T) {
+	// 不 set 任何 env → 写完文件里全是空字符串 → unsubstituted warning + exit 2
+	t.Setenv("WAU_STORE_PG_DSN", "")
+	t.Setenv("WAU_STORE_REDIS_PASSWORD", "")
+	t.Setenv("WAU_STORE_ADMIN_TOKEN", "")
+
+	resetInitConfigsFlags()
+	dir := t.TempDir()
+	cmd := NewInitConfigsCmd()
+	cmd.SetArgs([]string{
+		"--service", "wau-store",
+		"--output-dir", dir,
+		"--envsubst",
+		"--force",
+	})
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("want exit 2 for unsubstituted vars")
+	}
+	// 检查 exit code
+	if ee, ok := err.(interface{ ExitCode() int }); ok {
+		if ee.ExitCode() != 2 {
+			t.Errorf("ExitCode = %d, want 2", ee.ExitCode())
+		}
+	} else {
+		t.Errorf("err not exitCodeError: %T", err)
+	}
+	if !strings.Contains(out.String(), "were empty") {
+		t.Errorf("missing 'were empty' warning:\n%s", out.String())
+	}
 }

@@ -19,6 +19,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -143,6 +144,7 @@ type Writer struct {
 	OutputDir string // 目标目录(~/.wau/configs 或自定义)
 	Force     bool   // 覆盖已有文件
 	DryRun    bool   // 只 print,不实际写
+	EnvSubst  bool   // P4.5:写文件前用 os.ExpandEnv 替换 $VAR 占位符
 }
 
 // WriteResult 单个 template 的写入结果。
@@ -204,7 +206,14 @@ func (w *Writer) Write(t Template) WriteResult {
 
 	// atomic write:写 .tmp 再 rename
 	tmpPath := filepath + ".tmp"
-	if err := os.WriteFile(tmpPath, t.Contents, 0o644); err != nil {
+
+	// P4.5 envsubst:写文件前用 os.ExpandEnv 替换 $VAR 占位符
+	content := t.Contents
+	if w.EnvSubst {
+		content = []byte(os.ExpandEnv(string(t.Contents)))
+	}
+
+	if err := os.WriteFile(tmpPath, content, 0o644); err != nil {
 		res.Status = "error"
 		res.Err = fmt.Errorf("write tmp %s: %w", tmpPath, err)
 		return res
@@ -216,8 +225,34 @@ func (w *Writer) Write(t Template) WriteResult {
 	}
 
 	res.Status = "wrote"
-	res.Size = len(t.Contents)
+	res.Size = len(content)
 	return res
+}
+
+// envVarPattern 匹配 $VAR 或 ${VAR}(per os.ExpandEnv 接受的两种语法)。
+var envVarPattern = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)`)
+
+// ExtractEnvVars 扫描 content 找出所有 $VAR 占位符(返回名字,去重)。
+//
+// 用法:
+//   - --dry-run --envsubst 输出"模板需要这些 env var"
+//   - --envsubst 后 grep "$VAR" 看哪些没替换
+func ExtractEnvVars(content []byte) []string {
+	matches := envVarPattern.FindAllSubmatch(content, -1)
+	seen := map[string]bool{}
+	out := []string{}
+	for _, m := range matches {
+		// 第一个 submatch 是 ${VAR},第二个是 $VAR
+		name := string(m[1])
+		if name == "" {
+			name = string(m[2])
+		}
+		if !seen[name] {
+			seen[name] = true
+			out = append(out, name)
+		}
+	}
+	return out
 }
 
 // ExpandHome 展开 ~ 到 user home dir(跟 internal/cmd/stack/log.go 一致)。

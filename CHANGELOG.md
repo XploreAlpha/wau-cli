@@ -1,5 +1,55 @@
 ## [Unreleased] — v1.0.0 "Phoenix" ⭐wau stack + 第二刀 HTTP client 重构 + 第三刀 binary 安装验证 (2026-08-20, per visa demo + 子项 4.1)
 
+### Added — 第四刀 P4.5(2026-08-24,v1.0.1-p4.5)— `wau stack init-configs --envsubst`
+
+- **`wau stack init-configs --envsubst`** flag — 写 yaml 前用 `os.ExpandEnv` 替换 `$VAR` 占位符(per P4.2 closure §7.3):
+  - 类比 `envsubst`(GNU gettext)/ `docker compose --env-file` / `kubectl create configmap --from-env-file`
+  - 让本地 visa demo 能直接 `export WAU_STORE_PG_DSN=...` + 跑 `init-configs --envsubst`,**不需要** deploy 脚本
+  - **生产部署** 仍走 `wau-deploy` 脚本(不传 `--envsubst`,保留 `$VAR` 字面值)— D60 additive
+- **`Writer.EnvSubst bool`** 字段(P4.5 新):Write 时 conditional 走 `os.ExpandEnv`
+- **`ExtractEnvVars(content) []string`** helper:扫描模板找出所有 `$VAR`(支持 `$VAR` + `${VAR}` 两种语法,去重)
+- **dry-run 增强**:`--dry-run --envsubst` 列出每个模板引用的 `$VAR` + `✓`(set)/ `✗`(未 set)标记
+- **写完 warning**:`--envsubst` 真写时,扫描原 template 检查哪些 `$VAR` 在 env 是空 → 标 `⚠ N env var(s) were empty (will be replaced with "")` + exit 2
+- **小 fix**:`configs/store.yaml` 注释里 `$ENV` 占位改成 `env`(避免被 regex 误识别为真实 env var)
+
+### Tests — 第四刀 P4.5
+
+- `internal/stack/initconfigs/initconfigs_test.go`(P4.5 新增 6 tests):
+  - `TestWriter_EnvSubst_Template` — `$WAU_STORE_PG_DSN` 被 env 替换,文件含真实值 + 不再含字面 `$VAR`
+  - `TestWriter_EnvSubst_MissingEnvVar` — env 空 → `$VAR` 替换成 `""`(os.ExpandEnv 默认行为)
+  - `TestWriter_NoEnvSubst_PreservesLiteral` — EnvSubst=false → 文件保留 `$VAR` 文本(env 不渗透)
+  - `TestExtractEnvVars_Template` — 从 wau-store 模板 grep 出 3 个真实 $VAR(不含误识别的 $ENV)
+  - `TestExtractEnvVars_BothSyntaxes` — `$VAR` + `${VAR}` 都识别,重复去重
+  - `TestExtractEnvVars_Empty` — 无 $VAR / `$` 单独 / `$$` literal 都不误识别
+- `internal/cmd/stack/initconfigs_test.go`(P4.5 新增 4 tests):
+  - `TestNewInitConfigsCmd_EnvSubstFlag` — `--envsubst` flag 已注册
+  - `TestRunInitConfigs_EnvSubstDryRun_ShowsVars` — dry-run 列出 ✓/✗ 标记
+  - `TestRunInitConfigs_EnvSubst_WritesExpanded` — env 全 set → 文件含替换值,exit=0
+  - `TestRunInitConfigs_EnvSubst_MissingEnv_WarnsExit2` — env 全空 → 警告 + exit=2
+
+### smoke test — P4.5 (3 case,全 PASS)
+
+| # | 命令 | 结果 |
+|---|------|------|
+| 1 | `wau stack init-configs --service wau-store --dry-run --envsubst` | ✅ 列出 4 个 $VAR,全 ✗(env 未 set)|
+| 2 | `export WAU_STORE_* + wau stack init-configs --service wau-store --envsubst --force` | ✅ 文件含 `postgres://demo:demo@...` / `pgpass` / `redispass` / `admintoken` |
+| 3 | `wau stack init-configs --service wau-store --force` (无 --envsubst) | ✅ 文件保留 `$WAU_STORE_PG_DSN` 字面值(production path) |
+
+### Compatibility (P4.5 D60 additive)
+
+- ✅ 不传 `--envsubst` → 行为**完全不变**(P4.2 行为),生产 deploy 脚本继续可用
+- ✅ `wau stack up` / `restart` / `auth` / 其它子命令都不受影响
+- ⚠️ `os.ExpandEnv` 对未 set 的 env var 返回 `""`(非错误)— 用户**必须** export 才能拿到非空值;我们用 `⚠ N env var(s) were empty` 警告 + exit 2 提醒
+
+### Reference
+
+- **代码**:`internal/stack/initconfigs/initconfigs.go` (+30 LoC EnvSubst + ExtractEnvVars) + `internal/cmd/stack/initconfigs.go` (+80 LoC --envsubst flag + warning)
+- **Tests**:`internal/stack/initconfigs/initconfigs_test.go` (+110) + `internal/cmd/stack/initconfigs_test.go` (+80)
+- **plan + closure**:`~/WAU-develop/develop-log/wau-cli/v1.0.1-wau-init-configs-envsubst/`
+- **后续** P4.6 `wau cluster status`
+
+---
+
 ### Added — 第四刀 P4.4(2026-08-24,v1.0.1-p4.4)— `wau stack restart [service...]`
 
 - **`wau stack restart [service...]`** 子命令 — `down <svc>` + `up <svc>` 的便捷组合(per P4.3 closure §8.1):
