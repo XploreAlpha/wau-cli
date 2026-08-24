@@ -1,3 +1,42 @@
+## [Unreleased] — v1.1.0 子项 4.1.2 — embedded default `wau-stack.yml`
+
+### Added
+
+- **内嵌 default `wau-stack.yml`(v1.1 schema)** — 10-service single-node orchestration
+  - `internal/stack/defaults/wau-stack.yml` — 1 redis(external)+ 9 wau 服务,镜像 v1.0.1 `default.go` 内置编排
+  - `internal/stack/defaults/defaults.go` — `//go:embed` + `DefaultStackYAMLBytes()`(defensive copy)
+  - `internal/stack/defaults/defaults_test.go` — **7 unit tests** 全 PASS (NotEmpty / Version11 / ReleaseIsV134 / AllServices / ParseableV11 / Profiles / TopoOrder)
+
+### Service catalog (10 services)
+
+| 服务 | port | kind | binary | healthcheck |
+|------|------|------|--------|-------------|
+| redis | 6379 | external | (none) | tcp:localhost:6379 |
+| wau-core | 18400 | binary | wau-core | http:/health |
+| registry | 18401 | binary | registry | http:/health |
+| wau-store | 18405 | binary | wau-store | http:/healthz |
+| wau-intent | 50053 | binary | wau-intent-service | http:/health |
+| wau-profile | 50062 | binary | wau-profile-service | tcp:50062(gRPC only) |
+| wau-llm-router | 18403/18404 | binary | wau-llm-router | http:/healthz |
+| wau-edge | 18402 | binary | wau-edge | http:/healthz |
+| wau-channel | 18410/18411 | binary | wau-channel | http:/health |
+| wau-agent | 19408/19407 | binary | wau-agent | tcp:19408 |
+
+### Compatibility (D60 additive)
+
+- ✅ `internal/stack/default.go` 老 programmatic 9-service `DefaultStack()` 完全不变 — 老调用 path 继续工作
+- ✅ 新 `DefaultStackYAMLBytes()` 走与用户 wau-stack.yml 相同 `ParseV11` 路径,无 hardcode schema 分叉
+- ✅ 单 schema 真源(defaults/wau-stack.yml 一份)— 改一处全仓受益
+
+### Reference
+
+- **代码**:+270 行 (defaults.go 26 + defaults_test.go 89 + wau-stack.yml 155)
+- **测试**:+7 defaults tests,全 PASS,0 回归
+- **下 1 段**:4.1.3 — `wau stack validate / status` 扩展
+- **canonical plan**:`~/WAU-develop/develop-log/wau-cli/v1.1.0-wau-stack-yml/plan.md` §4.1.2
+
+---
+
 ## [Unreleased] — v1.1.0 子项 4.1.1 — `wau-stack.yml` schema v1.1 扩展
 
 ### Added

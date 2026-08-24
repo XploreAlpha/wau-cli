@@ -1,0 +1,156 @@
+# wau-stack.yml — 内置 default stack (v1.1 schema)
+#
+# 4.1.2 (2026-08-24, v1.1.0 子项 4.1) — 10-service single-node default orchestration。
+# 与 v1.0.1 的 internal/stack/default.go 镜像(redis + 9 个 wau 服务)。
+#
+# 用户可写 wau-stack.yml 覆盖其中任意字段(参看 schema)。
+# 这是 visa demo + 单机部署的 default:1 个 redis(infra)+ 9 个 wau 服务。
+#
+# 服务清单(按端口依赖排序):
+#   1. redis            :6379   infra(external)
+#   2. wau-core         :18400  内核(http 18400 / grpc 50051 / libp2p 4001)
+#   3. registry         :18401  wau-registry-service(http 18401 / grpc 50052)
+#   4. wau-store        :18405  存储
+#   5. wau-intent       :50053  意图解析(grpc)
+#   6. wau-profile      :50062  profile 服务(grpc only,无 HTTP)
+#   7. wau-llm-router   :18403  LLM 路由(http 18403 / grpc 18404)
+#   8. wau-edge         :18402  edge 入口(http 18402)
+#   9. wau-channel      :18410  通道(http 18410 / webhook 18411)
+#  10. wau-agent        :19408  agent(jsonrpc 19408 / gob 19407)
+#
+# 端口来源:project-wau-19-repo-real-architecture-2026-07-15。
+# release pin 到 v1.3.4 "Jade"(per D92, v1.1.0 子项 4.2 alignment)。
+
+version: "1.1"
+stack_id: "wau-default"
+domain: "wau.local"
+release: "v1.3.4"
+data_dir: "~/.wau/run"
+
+services:
+  redis:
+    kind: external
+    ports: ["6379:6379"]
+    required: true
+    healthcheck:
+      tcp: "localhost:6379"
+      interval: 2s
+      timeout: 5s
+
+  wau-core:
+    kind: binary
+    binary: wau-core
+    ports: ["18400:18400"]
+    env:
+      WAU_LOG_LEVEL: "info"
+      WAU_NET_LIBP2P_DISABLED: "true"
+    depends_on: ["redis"]
+    required: true
+    healthcheck:
+      http: "http://localhost:18400/health"
+      interval: 5s
+      timeout: 30s
+
+  registry:
+    kind: binary
+    binary: registry
+    ports: ["18401:18401"]
+    depends_on: ["wau-core"]
+    required: true
+    healthcheck:
+      http: "http://localhost:18401/health"
+      interval: 5s
+      timeout: 30s
+
+  wau-store:
+    kind: binary
+    binary: wau-store
+    ports: ["18405:18405"]
+    args: ["--config", "~/.wau/configs/store.yaml"]
+    depends_on: ["wau-core"]
+    healthcheck:
+      http: "http://localhost:18405/healthz"
+      interval: 5s
+      timeout: 30s
+
+  wau-intent:
+    kind: binary
+    binary: wau-intent-service
+    ports: ["50053:50053"]
+    depends_on: ["wau-core"]
+    healthcheck:
+      http: "http://localhost:50053/health"
+      interval: 5s
+      timeout: 30s
+
+  wau-profile:
+    kind: binary
+    binary: wau-profile-service
+    ports: ["50062:50062"]
+    depends_on: ["wau-core"]
+    healthcheck:
+      tcp: "localhost:50062"
+      interval: 5s
+      timeout: 30s
+
+  wau-llm-router:
+    kind: binary
+    binary: wau-llm-router
+    ports: ["18403:18403", "18404:18404"]
+    args: ["--config", "~/.wau/configs/router.yaml"]
+    depends_on: ["wau-core"]
+    healthcheck:
+      http: "http://localhost:18403/healthz"
+      interval: 5s
+      timeout: 30s
+
+  wau-edge:
+    kind: binary
+    binary: wau-edge
+    ports: ["18402:18402"]
+    args: ["--config", "~/.wau/configs/edge.yaml"]
+    depends_on: ["wau-core", "wau-llm-router"]
+    healthcheck:
+      http: "http://localhost:18402/healthz"
+      interval: 5s
+      timeout: 30s
+
+  wau-channel:
+    kind: binary
+    binary: wau-channel
+    ports: ["18410:18410", "18411:18411"]
+    args: ["--config", "~/.wau/configs/channel.yaml"]
+    depends_on: ["wau-core", "registry"]
+    healthcheck:
+      http: "http://localhost:18410/health"
+      interval: 5s
+      timeout: 30s
+
+  wau-agent:
+    kind: binary
+    binary: wau-agent
+    ports: ["19408:19408", "19407:19407"]
+    depends_on: ["wau-core", "registry"]
+    healthcheck:
+      tcp: "localhost:19408"
+      interval: 5s
+      timeout: 30s
+
+profiles:
+  demo:
+    services:
+      - redis
+      - wau-core
+      - registry
+      - wau-store
+      - wau-intent
+      - wau-profile
+      - wau-llm-router
+      - wau-edge
+      - wau-channel
+      - wau-agent
+  minimal:
+    services:
+      - redis
+      - wau-core
+      - registry
