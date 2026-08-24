@@ -1,3 +1,48 @@
+## [Unreleased] — v1.1.0 子项 4.1.1 — `wau-stack.yml` schema v1.1 扩展
+
+### Added
+
+- **`wau-stack.yml` schema v1.1** 解析 + 校验(`ParseV11` + `ParseStackFile` dispatcher)
+  - 新增 `internal/stack/types_v11.go` — `StackV11` / `ServiceV11` / `HealthcheckSpec` / `PlacementSpec` / `SecretSpec` / `VolumeSpec` / `NetworkSpec` / `ProfileV11`
+  - 新增 `internal/stack/parse_v11.go` — `ParseV11` / `ParseStackFile` dispatcher + (StackV11) `Validate` / `resolveDependsOn` / `TopoOrder` / `ServiceByName` / `ApplyProfile` + (HealthcheckSpec) `validate`
+  - 新增 `internal/stack/parse_v11_test.go` — **23 v11 unit tests** 全 PASS
+  - **双格式兼容**:`version: "1"` (老 v1.0.1 default) + `version: "1.1"` (新) 都接受;`ParseStackFile` 按 version 字段路由
+
+### Schema v1.1 vs v1 (diff)
+
+| 字段 | v1 | v1.1 |
+|------|-----|------|
+| services | `[]Service`(slice + name field)| `map[string]ServiceV11`(YAML key 即服务名)|
+| stack id | `stack.name` | 顶层 `stack_id`(必填)|
+| 域 / release pin | (无)| 顶层 `domain` / `release` / `data_dir` |
+| 共享卷 / 网络 | (无)| `volumes` / `networks` |
+| 配置 / 密钥 | (无)| `configs` / `secrets` |
+| profile | `map[string]Profile` | `map[string]ProfileV11`(同 shape)|
+| healthcheck | `Probe`(单 type + fields) | `HealthcheckSpec`(grpc/http/tcp/exec **四选一** + interval/timeout/retries)|
+| placement | (无)| `PlacementSpec`(v1.1 only supports local,host 字段 reserved)|
+| image / kind=docker | (无)| 字段保留,parse 时 warn "reserved for v1.1.x"|
+
+### Algorithm details
+
+- **`TopoOrder`** — Kahn's algorithm,字母序 deterministic queue(同 v1 算法,map vs slice 差异导致代码不复用;4.1.6 closure 后抽 `topoSortGeneric` 公共 helper)
+- **`ApplyProfile`** — BFS transitive deps 闭包 + 全 stack TopoOrder 过滤(deps-first 启动顺序)
+
+### Compatibility (D60 additive)
+
+- ✅ **0 删 / 0 改 / 0 重命名公开接口**:`internal/stack/types.go` + `internal/stack/parse.go` v1 代码 0 行修改
+- ✅ 老 `Parse` / `LoadFile` / `Validate` / `TopoOrder` / `ApplyProfile` 公开 API 完全不变
+- ✅ 老 v1 YAML 文件(`version: "1"`)+ `wau stack up --file X` 路径 0 改动继续工作
+- ✅ `default.go` 内嵌 9-service 老 default stack 0 改
+
+### Reference
+
+- **代码**:+883 行 (types_v11.go 87 + parse_v11.go 269 + parse_v11_test.go 527)
+- **测试**:stack 包 55 → 78 tests (+23 v11)
+- **下 1 段**:4.1.2 — embedded default `wau-stack.yml` 19 服务编排
+- **canonical plan**:`~/WAU-develop/develop-log/wau-cli/v1.1.0-wau-stack-yml/plan.md` §4.1.1
+
+---
+
 ## [v1.3.4] - 2026-08-24 — ⭐ 子项 4.2 version alignment kickoff
 
 ### Changed
