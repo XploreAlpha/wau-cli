@@ -1,0 +1,52 @@
+# wau-cli embedded copy (P4.2 v1.0.1, 2026-08-24)
+# Source of truth: https://github.com/wau/wau-edge/blob/main/configs/edge.yaml
+# Synced manually on service schema change; keep in sync with upstream
+
+# wau-edge 配置示例
+# Stage 1 M2 §2.1 雏形期:扩展 GRPC / WS / OpenAI / Dashboard / Universe 字段。
+
+version: 0.9.0-stage1
+log_level: info
+
+http:
+  port: 18402
+  ws_path: /ws
+  openai_compat_path: /v1
+  dashboard_path: /v1/bside/dashboard
+  health_path: /healthz
+  metrics_path: /metrics
+
+grpc:
+  port: 18403
+
+auth:
+  jwt_secret: ""       # Stage 1 §2.2 必填;Stage 3.1 #1 修复(2026-07-01)留空,启动时从 env `WAU_EDGE_JWT_SECRET` 兜底
+  api_key_file: ""     # Stage 1 §2.2 可选,B 端 API Key
+
+kernel_addr: "localhost:18401"
+rate_limit:
+  enabled: true
+  rps: 100
+  burst: 100
+universe_label: ""     # W-6 universe 标签(per D15)
+
+openai_compat:
+  enabled: true        # Stage 3.1 #4 启用(2026-06-30)
+
+dashboard:
+  enabled: false       # Stage 1 §2.8 实装时改为 true
+  cache_ttl: "1m"      # per R5 缓解
+
+# D19 sidecar new-api 集成(per v0.9.0 M2 §2.9-revised + 2026-06-29 architecture-pivot)
+# D37 拍板 2026-07-01:走 new-api(OpenAI-compat) 走真 LLM
+# D38 拍板 2026-07-01:LLM = DeepSeek(国内 OpenAI-compat)
+# Stage 3.1 #1+ Full E2E 启用(per [[2026-07-01-PROGRESS-M5-#1+-full-e2e]])
+newapi:
+  enabled: true
+  base_url: "http://localhost:3000"  # Phase 1 new-api Docker 部署
+  # tenant_tokens 留空(StaticRouter 不需要,本期走 GRPCRouter)
+  # default_token 留空
+  llm_router:
+    enabled: true                  # D20 启用,走 wau-llm-router gRPC
+    addr: "localhost:18404"        # wau-llm-router gRPC
+    timeout_sec: 5                 # gRPC call timeout

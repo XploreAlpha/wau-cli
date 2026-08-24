@@ -1,0 +1,68 @@
+# wau-cli embedded copy (P4.2 v1.0.1, 2026-08-24)
+# Source of truth: https://github.com/wau/wau-llm-router/blob/main/configs/router.yaml
+# Synced manually on service schema change; keep in sync with upstream
+
+# wau-llm-router 配置示例
+# Stage 1 §3.1 实装(per D20 architecture-pivot + D22 Thompson + D23 Universe Affinity)
+
+version: 0.9.0-stage1
+log_level: info
+
+http:
+  addr: ":18403"
+
+# gRPC server(Stage 1 §3.2 实装,wau-edge GRPCRouter + 4 SDK 走这个)
+grpc:
+  addr: ":18404"
+
+# Router 类型:"static"(v0.9.0 alpha,tenant_id → token 表 + 固定 model)
+#             "thompson"(§3.4 雏形期默认,Beta 采样智能选 model)
+router:
+  type: thompson
+
+# new-api sidecar 配置(per D20)
+# wau-llm-router 不调 LLM,只输出 userToken + model + universe,
+# wau-edge 拿 userToken 去 new-api 调 LLM。
+newapi:
+  tenant_tokens:
+    acme: "$NEW_API_ACME_TOKEN"
+    globex: "$NEW_API_GLOBEX_TOKEN"
+    default: "$NEW_API_DEFAULT_TOKEN"
+  default_token: "$NEW_API_DEFAULT_TOKEN"
+
+default_model: gpt-4o-mini
+default_universe: default
+
+# M3 §3.5 Universe Affinity 调度配置(per D23,§3.5 启用)
+# 每个 universe 维护独立的 arm map / α/β 学习 / warmup 计数 / 锁
+universe_affinity:
+  enabled: true                              # §3.5 启用 per-Universe Thompson
+  default_universes: [prod, staging, research]  # §3.5 拍板(per AFP 协议 namespace)
+  affinity_rules: []                         # v1.x 留 hook,§3.5 不消费
+
+# M3 §3.6 Prometheus metrics 配置(per D24)
+# 暴露 /metrics 端点供 prom scrape,9 个 wau_router_* 指标覆盖
+# resolve / update / 耗时(provider label) / α/β 学习 / universe 注册 /
+# request_cost_usd(Stage 3.1 #11) / provider_pick_total(Stage 3.1 #11)
+metrics:
+  enabled: true                              # §3.6 启用 /metrics 端点
+  path: /metrics                             # HTTP 端点路径
+  namespace: wau_router                      # prom 指标命名空间前缀
+
+# Stage 3.1 #11 (2026-07-03):wau-store HTTP client 配置(60s cache + 后台刷新)
+# 拉 LLM provider 真相源,Samper candidates 从这里来
+# enabled=false → router 退化 arm map 自循环兜底(R7,per plan D.2 #5)
+store:
+  enabled: true                                          # Stage 3.1 #11 默认开
+  url: "http://localhost:18405"                          # wau-store 根 URL(Phase 1 完工)
+  ttl_seconds: 60                                        # cache TTL(60s,per plan D.2 #5)
+  refresh_interval_seconds: 60                           # 后台刷新间隔
+  timeout_seconds: 5                                     # 单次 HTTP 超时
+
+# Stage 3.1 #11:省钱 ProviderSelector 规则引擎(per Phase 2.4)
+# 规则:intents greeting/small_talk/chitchat → 强制 cheap
+#      budget=low → 排除 premium
+#      fallback:filter 空 → 返回全量(Sampler 兜底)
+provider_selection:
+  enabled: true                                          # Stage 3.1 #11 默认开
+  budget_default: medium                                 # metadata.budget 缺省值

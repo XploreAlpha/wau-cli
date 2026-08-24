@@ -251,7 +251,7 @@ func (pm *ProcessManager) Start(ctx context.Context, svc *Service, logDir string
 	fmt.Fprintf(logFile, "\n──── %s started at %s ────\n",
 		svc.Name, time.Now().Format(time.RFC3339))
 
-	cmd := exec.CommandContext(ctx, binPath, svc.Args...)
+	cmd := exec.CommandContext(ctx, binPath, expandArgs(svc.Args)...)
 	cmd.Env = os.Environ()
 	for k, v := range svc.Env {
 		cmd.Env = append(cmd.Env, k+"="+v)
@@ -446,6 +446,31 @@ func FollowLog(ctx context.Context, logPath string, w *SafeWriter, filter func(s
 type SafeWriter struct {
 	mu sync.Mutex
 	w  io.Writer
+}
+
+// expandArgs 把 svc.Args 里的 ~ 展开成 user home(per P4.2 —
+// 默认 stack 的 --config 用 ~/.wau/configs/... 相对路径)。
+func expandArgs(args []string) []string {
+	out := make([]string, len(args))
+	for i, a := range args {
+		out[i] = expandHomeArg(a)
+	}
+	return out
+}
+
+func expandHomeArg(p string) string {
+	if p == "" {
+		return p
+	}
+	if p == "~" {
+		home, _ := os.UserHomeDir()
+		return home
+	}
+	if strings.HasPrefix(p, "~/") {
+		home, _ := os.UserHomeDir()
+		return filepath.Join(home, p[2:])
+	}
+	return p
 }
 
 // NewSafeWriter 包一层 mutex-protected io.Writer。

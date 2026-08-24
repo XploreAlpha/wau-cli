@@ -1,0 +1,35 @@
+# wau-cli embedded copy (P4.2 v1.0.1, 2026-08-24)
+# Source of truth: https://github.com/wau/wau-store/blob/main/configs/store.yaml
+# Synced manually on service schema change; keep in sync with upstream
+
+# wau-store 默认配置(per Stage 3.1 #11, 2026-07-03)
+#
+# 用法: wau-store -config configs/store.yaml
+# 注意:DSN / Redis password / admin token 用 $ENV 占位
+#       由 wau-deploy 脚本(per [[project-v0-9-0-deploy-to-server-sop-2026-07-01]])替换
+
+version: "0.9.0-stage1-#11"
+log_level: "info"
+
+http:
+  addr: ":18405"
+
+postgres:
+  dsn: "$WAU_STORE_PG_DSN"     # postgres://wau_store:$WAU_STORE_PG_PASSWORD@localhost:5432/wau_store?sslmode=disable
+  max_conns: 10
+  min_conns: 2
+  max_conn_life: "1h"
+
+redis:
+  addr: "localhost:6379"
+  password: "$WAU_STORE_REDIS_PASSWORD"
+  db: 0
+  ttl: 60                      # 60s TTL cache-aside
+
+metrics:
+  enabled: true
+  path: "/metrics"
+  namespace: "wau_store"
+
+admin:
+  token: "$WAU_STORE_ADMIN_TOKEN"  # 用于 POST/PUT/DELETE 鉴权

@@ -1,0 +1,24 @@
+# wau-cli embedded copy (P4.2 v1.0.1, 2026-08-24)
+# Source of truth: https://github.com/wau/wau-channel/blob/main/configs/channel.yaml
+# Synced manually on service schema change; keep in sync with upstream
+
+# wau-channel 配置示例
+# Stage 0 脚手架;Stage 1 雏形期扩展各 adapter 子配置。
+version: 0.9.0-stage0
+default_tenant: default
+log_level: info
+
+http:
+  port: 18410
+
+telegram:
+  enabled: false   # Stage 1 启用
+  token: ""        # @BotFather 申请
+
+discord:
+  enabled: false   # Stage 1 启用
+  token: ""        # Discord Developer Portal
+
+webhook:
+  enabled: true    # Stage 3.1 #3 启用(2026-06-30)
+  addr: ":18411"   # SDK 模式入口

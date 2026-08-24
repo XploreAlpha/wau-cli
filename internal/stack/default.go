@@ -91,12 +91,15 @@ func DefaultStack() *Stack {
 				Health:    probeHTTP("http://localhost:18401/health"),
 			},
 			// 4. wau-store
+			//    P4.2:加 --config 让 binary 读 ~/.wau/configs/store.yaml
+			//    (需要先跑 `wau stack init-configs`)
 			{
 				Name:      "wau-store",
 				Kind:      KindBinary,
 				Binary:    "wau-store",
 				HTTPPort:  18405,
 				DependsOn: []string{"wau-core"},
+				Args:      []string{"--config", "~/.wau/configs/store.yaml"},
 				Health:    probeHTTP("http://localhost:18405/healthz"),
 			},
 			// 5. wau-intent
@@ -118,6 +121,7 @@ func DefaultStack() *Stack {
 				Health:    probeTCP(50062),
 			},
 			// 7. wau-llm-router
+			//    P4.2:加 --config ~/.wau/configs/router.yaml
 			{
 				Name:      "wau-llm-router",
 				Kind:      KindBinary,
@@ -125,18 +129,22 @@ func DefaultStack() *Stack {
 				HTTPPort:  18403,
 				GRPCPort:  18404,
 				DependsOn: []string{"wau-core"},
+				Args:      []string{"--config", "~/.wau/configs/router.yaml"},
 				Health:    probeHTTP("http://localhost:18403/healthz"),
 			},
 			// 8. wau-edge
+			//    P4.2:加 --config ~/.wau/configs/edge.yaml
 			{
 				Name:      "wau-edge",
 				Kind:      KindBinary,
 				Binary:    "wau-edge",
 				HTTPPort:  18402,
 				DependsOn: []string{"wau-core", "wau-llm-router"},
+				Args:      []string{"--config", "~/.wau/configs/edge.yaml"},
 				Health:    probeHTTP("http://localhost:18402/healthz"),
 			},
 			// 9. wau-channel — 第三刀 3.1:加 /health probe(原来缺)
+			//    P4.2:加 --config ~/.wau/configs/channel.yaml
 			{
 				Name:        "wau-channel",
 				Kind:        KindBinary,
@@ -144,6 +152,7 @@ func DefaultStack() *Stack {
 				HTTPPort:    18410,
 				WebhookPort: 18411,
 				DependsOn:   []string{"wau-core", "registry"},
+				Args:        []string{"--config", "~/.wau/configs/channel.yaml"},
 				Health:      probeHTTP("http://localhost:18410/health"),
 			},
 			// 10. wau-agent

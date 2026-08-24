@@ -52,6 +52,7 @@ See also: wau service <name> {start,stop,restart,logs} for per-service control.`
 	cmd.AddCommand(newLsCmd())
 	cmd.AddCommand(NewLogCmd())
 	cmd.AddCommand(NewStackLogsCmd())
+	cmd.AddCommand(NewInitConfigsCmd())
 
 	return cmd
 }

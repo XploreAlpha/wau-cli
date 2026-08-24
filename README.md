@@ -154,6 +154,47 @@ wau stack logs --grep "ERROR|panic"
 - 颜色:8-color cycler(cyan/yellow/magenta/green/blue/red/bright cyan/bright yellow),`--no-color` 关
 - `redis` external 服务在 fanout 中自动 skip(无 log file)
 
+### `wau stack init-configs` ⭐ v1.0.1 P4.2 (2026-08-24)
+
+Write embedded service config templates to `~/.wau/configs/`. Solves stage3's "missing configs/*.yaml" onboarding blocker.
+
+```bash
+# 默认:写所有 4 个服务 config 到 ~/.wau/configs/
+wau stack init-configs
+
+# 单服务
+wau stack init-configs --service wau-store
+wau stack init-configs --service wau-llm-router   # alias: --service router
+
+# 自定义输出目录
+wau stack init-configs --output-dir /etc/wau/configs
+
+# 覆盖已有文件
+wau stack init-configs --force
+
+# 只看 plan,不写
+wau stack init-configs --dry-run
+```
+
+**4 个服务**(embed 在 wau-cli binary):
+| Service | Config filename | Purpose |
+|---------|-----------------|---------|
+| `wau-store` | `store.yaml` | 存储(postgres + redis + admin) |
+| `wau-llm-router` | `router.yaml` | LLM 路由(thompson / newapi sidecar) |
+| `wau-edge` | `edge.yaml` | Edge 入口(WS / OpenAI compat / dashboard / newapi) |
+| `wau-channel` | `channel.yaml` | 通道(telegram / discord / slack / feishu / dingtalk / qq / email / webhook) |
+
+**Flags**: `--service` · `--output-dir` (default `~/.wau/configs`) · `--force` · `--dry-run`
+
+**行为**:
+- 文件已存在 → 默认 skip(提示 `--force`)
+- `--force` → overwrite
+- `--dry-run` → 只 print,不写
+- atomic write(`.tmp` + `rename`,无 partial file)
+- **不展开** env placeholder(如 `$WAU_STORE_PG_DSN`)— 由部署层脚本替换
+
+**前提**:跑完后 `wau stack up --demo` 才能完整启动 wau-store / wau-llm-router / wau-edge / wau-channel(否则还是 stage3 的 "config not found" 报错)。
+
 ### `wau health`
 
 Check kernel health.

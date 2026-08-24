@@ -1,5 +1,81 @@
 ## [Unreleased] — v1.0.0 "Phoenix" ⭐wau stack + 第二刀 HTTP client 重构 + 第三刀 binary 安装验证 (2026-08-20, per visa demo + 子项 4.1)
 
+### Added — 第四刀 P4.2(2026-08-24,v1.0.1-p4.2)— `wau stack init-configs`
+
+- **`wau stack init-configs`** 子命令(per stage3 §5.4 "缺 configs/*.yaml 是常见 onboarding 障碍" + 子项 4.3):
+  - **embed 4 个服务 config 模板**到 wau-cli binary:wau-store / wau-llm-router / wau-edge / wau-channel
+  - 默认写 `~/.wau/configs/<service>.yaml`(可 `--output-dir` 自定义)
+  - `--service <name>` 单服务(支持 alias: `router` / `llm-router` → `wau-llm-router`)
+  - `--force` 覆盖已有文件
+  - `--dry-run` 只看 plan,不写
+  - 文件已存在默认 skip + 提示 `--force`
+  - atomic write(`.tmp` + `rename`,同 process.go 模式)
+- **`internal/stack/initconfigs/`** package (~200 LoC + 14 tests):
+  - `//go:embed configs/*.yaml` 模板
+  - `Template` / `ListTemplates` / `TemplateByService` / `remapServiceName` / `normalizeService`(大小写不敏感 + alias)
+  - `Writer` / `WriteAll` / `WriteResult`(wrote / skipped / would-write / error 4 状态)
+  - `ExpandHome`(跟 log.go / process.go 一致)
+- **`internal/stack/process.go` 加 `expandArgs` / `expandHomeArg`**:`~` 在 svc.Args 里展开成 user home(让 `--config ~/.wau/configs/...` 工作)
+- **`internal/stack/default.go` 改 4 个服务 `Args`**:
+  - `wau-store` `--config ~/.wau/configs/store.yaml`
+  - `wau-llm-router` `--config ~/.wau/configs/router.yaml`
+  - `wau-edge` `--config ~/.wau/configs/edge.yaml`
+  - `wau-channel` `--config ~/.wau/configs/channel.yaml`
+- **不解 PG / Redis / admin token 的 env placeholder**:`$WAU_STORE_PG_DSN` / `$WAU_STORE_REDIS_PASSWORD` / `$WAU_STORE_ADMIN_TOKEN` 保持字面(由 `wau-deploy` 替换,deployment-level concern,不在 wau-cli scope)
+
+### Tests — 第四刀 P4.2
+
+- `internal/stack/initconfigs/initconfigs_test.go`:14 tests —
+  - `ListTemplates` 4 个 template 都在
+  - `TemplateByService` 7 case(wau-store / store / WAU-STORE / wau-llm-router / router / wau-edge / wau-channel)
+  - `TemplateByService_NotFound` 未知 service → error
+  - `RemapServiceName` 4 case
+  - `ExpandHome` 6 case(`~` / `~/x` / `~~/x` / 空 / `/abs` / `rel`)
+  - `Writer_Write_New` mkdir + write
+  - `Writer_Write_ExistsSkip` 已有 → skip
+  - `Writer_Write_ExistsForce` 已有 + Force → overwrite
+  - `Writer_DryRun` 不写
+  - `Writer_WriteAll` 批量
+  - `Writer_WriteAll_PartialSkip` 1 已有 → 3 write + 1 skip
+  - `Writer_NestedOutputDir` mkdir 递归
+  - `Writer_AtomicWrite_NoPartialFile` 无 .tmp 残留
+- `internal/cmd/stack/initconfigs_test.go`:6 tests —
+  - `NewInitConfigsCmd_BasicArgs` flag 注册
+  - `RunInitConfigs_DryRun` 输出 "Dry run" + service 列表
+  - `RunInitConfigs_WriteAll` 写 4 个文件 + 输出 "4 wrote"
+  - `RunInitConfigs_ServiceFilter` 单服务
+  - `RunInitConfigs_ServiceNotFound` ghost → error
+  - `RunInitConfigs_SkipAndForce` 跳过 + --force overwrite
+- **全 PASS**(initconfigs 14 + cmd 6 = 20 新,0 回归)
+
+### smoke test — P4.2 (8 case)
+
+| # | 命令 | 结果 |
+|---|------|------|
+| 1 | `wau stack init-configs --dry-run` | ✅ 4 个 plan,不写 |
+| 2 | `wau stack init-configs --output-dir /tmp/wau-cfg-test` | ✅ 4 写 + "Next: wau stack up --demo" |
+| 3 | re-run 同命令 | ✅ 4 skip("already exists") |
+| 4 | `--force` | ✅ 4 overwrite |
+| 5 | `--service wau-store --output-dir /tmp/wau-cfg-single` | ✅ 1 write,只有 store.yaml |
+| 6 | `--service wau-ghost` | ✅ exit=1,"no template for service" |
+| 7 | `wau stack init-configs`(默认 ~/.wau/configs) | ✅ 4 写到 `~/.wau/configs/` |
+| 8 | `~/.wau/bin/wau-store --config ~/.wau/configs/store.yaml` | ✅ **不再 "file not found"**;走到 PG DSN env placeholder(deployment-level) |
+
+### Compatibility (P4.2 D60 additive)
+
+- `wau stack up/down/ls/log/logs` 0 改
+- `wau store/llm-router/edge/channel` 的 `Args` 多加 `--config` flag,**不影响手工启动**(用户没显式 init-configs 也能正常跑,只是会用 source 仓的相对路径 — 跟 stage3 行为一致)
+- 不引入新 dep(纯 stdlib + `//go:embed`)
+- 不修改任何服务的 source(D60 additive — 模板从 source 仓 yaml **复制到** `internal/stack/initconfigs/configs/`,头部注明 source of truth URL)
+
+### Reference
+- stage3 known issue:`~/WAU-develop/develop-log/wau-cli/stage3-summary-2026-08-23.md` §5.4
+- P4.1 closure:`~/WAU-develop/develop-log/wau-cli/v1.0.1-wau-log-follow/closure.md`
+- v1.1.0 子项 4.1:`project-wau-v1-1-0-deployment-plan-main-2026-08-19`
+- OS CLI 定位:`feedback-wau-cli-purpose`
+
+---
+
 ### Added — 第四刀 P4.1(2026-08-24,v1.0.1-p4.1)— `wau log` + `wau stack logs`
 
 - **`wau log <service>`** + **`wau stack logs [service]`** 子命令(per 子项 4.1 + OS CLI 定位):
