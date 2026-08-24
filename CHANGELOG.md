@@ -1,3 +1,29 @@
+## [v1.0.1] - 2026-08-24 — ⭐ 第四刀 OS CLI 化(P4.1-P4.6 全 6 段)
+
+### Added
+
+- **第四刀 P4.6** — `wau cluster status / agents`(组合 `/health` + `/kernel/info` + `/registry/agents`,并发 fetch,partial OK)
+- **第四刀 P4.5** — `wau stack init-configs --envsubst`(本地 visa demo 不需要 deploy 脚本)
+- **第四刀 P4.4** — `wau stack restart [service...]`(`down + up` 组合,health warning 区分)
+- **第四刀 P4.3** — `wau auth login / logout / whoami`(顶层 JWT 凭证子命令组,D74)
+- **第四刀 P4.2** — `wau stack init-configs`(embed 4 服务 yaml config,wau-store / wau-llm-router / wau-edge / wau-channel)
+- **第四刀 P4.1** — `wau log` + `wau stack logs`(POSIX `tail -F` 跟日志,multi-service fanout + filter)
+
+### Compatibility
+
+- **D60 additive 贯彻全段**:0 删 / 0 改 / 0 重命名公开接口
+- 老用户从 v1.0.0 升级到 v1.0.1 零代码改动,只多了 6 个新子命令
+- `wau agent login` / `wau agent list` / `wau health` / `wau kernel info` / `wau node` 全部保留
+
+### Reference
+
+- **代码**: ~2,500 行(6 段累计)
+- **测试**: ~50 新 case,全 PASS,0 回归
+- **真实验证**: `http://43.134.126.126:18400` 远程 server 真实响应
+- **closure**: `~/WAU-develop/develop-log/wau-cli/v1.0.1-wau-*/closure.md`(6 个)
+
+---
+
 ## [Unreleased] — v1.0.0 "Phoenix" ⭐wau stack + 第二刀 HTTP client 重构 + 第三刀 binary 安装验证 (2026-08-20, per visa demo + 子项 4.1)
 
 ### Added — 第四刀 P4.6(2026-08-24,v1.0.1-p4.6)— `wau cluster status / agents`

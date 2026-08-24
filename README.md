@@ -1,7 +1,7 @@
 # wau-cli
 
-[![Version](https://img.shields.io/badge/version-v0.1.0--dev-blue)](https://github.com/wau/wau-cli)
-[![Release](https://img.shields.io/badge/release-Genesis-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v1.0.1-blue)](https://github.com/XploreAlpha/wau-cli/releases/tag/v1.0.1)
+[![Release](https://img.shields.io/badge/release-Iris-orange)](CHANGELOG.md)
 [![Go](https://img.shields.io/badge/go-1.23+-00ADD8)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
 

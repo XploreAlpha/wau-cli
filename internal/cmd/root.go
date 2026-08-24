@@ -19,10 +19,10 @@ import (
 
 var (
 	// Version of wau-cli
-	Version = "v0.1.0-dev"
+	Version = "v1.0.1"
 
-	// ReleaseName of the current version (e.g. "Genesis", "Coral")
-	ReleaseName = "Genesis"
+	// ReleaseName of the current version (e.g. "Phoenix", "Iris")
+	ReleaseName = "Iris"
 
 	// Global flags
 	cfgFile     string
