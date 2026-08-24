@@ -52,14 +52,16 @@ Flags:
   --dry-run    Print plan without starting anything
   --detach     Start in background (do not wait for health checks)
   --wait-max   Maximum time to wait for all health probes (default 60s)
+  --remote     SSH address (e.g. ssh://root@host:22) — only valid with v1.1 schema
 
 Examples:
   wau stack up                      # full built-in default stack
   wau stack up --demo               # visa demo: same as default (9 services)
   wau stack up --file my.yml        # custom stack from yaml
   wau stack up --profile minimal    # only redis + wau-core + registry
-  wau stack up --dry-run            # plan only, no side effects`,
-		RunE: runUp,
+  wau stack up --dry-run            # plan only, no side effects
+  wau stack up --file wau-stack.yml --remote ssh://root@43.134.126.126  # v1.1 + SSH push`,
+		RunE: runUpDispatcher,
 	}
 
 	cmd.Flags().StringVar(&upFile, "file", "", "path to wau-stack.yml")
@@ -68,8 +70,29 @@ Examples:
 	cmd.Flags().BoolVar(&upDryRun, "dry-run", false, "print plan without starting anything")
 	cmd.Flags().BoolVar(&upDetach, "detach", false, "start in background without waiting for health")
 	cmd.Flags().DurationVar(&upWaitMax, "wait-max", 60*time.Second, "max wait for all health probes")
+	cmd.Flags().StringVar(&upRemote, "remote", "", "SSH address for v1.1 schema (e.g. ssh://root@host:22)")
 
 	return cmd
+}
+
+// runUpDispatcher(4.1.5)在 runUp 之前按 schema 版本分派:
+//   - --remote 给出:必须 v1.1 → runUpV11
+//   - --file 给出且 version: "1.1":runUpV11
+//   - 其余(v1 默认 9-service 或 v1 文件):runUp 老路径(D60 不动)
+func runUpDispatcher(cmd *cobra.Command, args []string) error {
+	if upRemote != "" {
+		if upFile == "" {
+			return fmt.Errorf("--remote requires --file pointing to a v1.1 wau-stack.yml")
+		}
+		if !isV11YAML(upFile) {
+			return fmt.Errorf("--remote requires v1.1 schema (version: \"1.1\"); got v1 schema in %s", upFile)
+		}
+		return runUpV11(cmd, args)
+	}
+	if upFile != "" && isV11YAML(upFile) {
+		return runUpV11(cmd, args)
+	}
+	return runUp(cmd, args)
 }
 
 func runUp(cmd *cobra.Command, args []string) error {

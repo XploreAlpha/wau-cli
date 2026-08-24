@@ -1,3 +1,67 @@
+## [Unreleased] — v1.1.0 子项 4.1.5 — `wau stack up --file --remote` 集成
+
+### Added
+
+- **`internal/cmd/stack/up_v11.go`** — `runUpV11(cmd, args)` + `runUpDispatcher` + v1.1 转换 helpers
+  - `runUpDispatcher`:peek `--file` 的 `version:` 字段,v1.1 → `runUpV11`,v1 → 老 `runUp`(D60 0 改)
+  - `runUpV11` 流程:ParseV11 → ApplyProfile → dry-run plan / remote push + start / 本地 ProcessManager.Start
+  - 复用 4.1.4 的 `remote.PushStack` / `remote.StartRemote`(`--remote ssh://root@host:22`)
+  - v1.1 `ServiceV11` → v1 `Service` 转换:`convertToV1Service`(command 合并到 args / ports 解析 / healthcheck → Probe)
+  - `healthToProbe`:`tcp` / `http` / `exec` 三种 + `grpc` 降级为 tcp(v1 ProcessManager 没独立 grpc 类型)
+  - `extractPortsFromList`:`["9000:18400", "9001:18401"]` → `(9000, 9001)` host-side 端口
+  - `resolveStackDirsV11`:`data_dir` 沿用 v1 的 `~` 展开 + 默认 `~/.wau/run`
+  - `upV11ExitError`(本地 + remote 错误路径返回 cobra ExitCode)
+- **`--remote` flag** — `wau stack up --remote ssh://root@43.134.126.126`(只接受 v1.1 schema,v1 给清晰错误)
+- **`internal/cmd/stack/up_v11_test.go`** — **20 unit tests** 全 PASS
+  - `isV11YAML` × 5 (v11 / v1 / missing / invalid / no version)
+  - `runUpDispatcher` × 4 (remote 无 file 报错 / remote v1 报错 / v11 file 路由 / v1 file 不动老路径)
+  - `runUpV11` × 5 (dry-run plan / dry-run remote hint / demo+profile 互斥 / default embed / ... )
+  - `convertToV1Service` × 2 (字段映射 / healthcheck)
+  - `healthToProbe` × 6 (tcp / http / grpc→tcp / exec / nil / 默认 interval timeout)
+  - `extractPortsFromList` × 5 + `extractHostPortFromSpec` + `atoiSafe`
+  - `resolveStackDirsV11` × 2 (默认 / `~` 展开)
+  - `upV11ExitError` × 1
+
+### Real-run verification (binary)
+
+```
+$ wau stack up --file internal/stack/defaults/wau-stack.yml --dry-run
+Plan (dry-run, v1.1, stack_id="wau-default", release="v1.3.4", profile="", remote=""):
+  10 services in topo order:
+  1. redis [required]
+  2. wau-core [required]
+  3. registry [required]
+  ... 10 lines, exit=0
+
+$ wau stack up --file wau-stack.yml --remote ssh://root@43.134.126.126 --dry-run
+Plan (dry-run, v1.1, stack_id="wau-default", release="v1.3.4", profile="", remote="ssh://root@43.134.126.126"):
+  ... 10 services in topo order ...
+[remote=ssh://root@43.134.126.126] PushStack would push binaries + configs + secrets.
+[remote] StartRemote would invoke each service in topo order.
+
+$ wau stack up --remote ssh://root@43.134.126.126 --dry-run
+Error: --remote requires --file pointing to a v1.1 wau-stack.yml
+
+$ wau stack up --dry-run
+Plan (dry-run): 10 services in order:     ← v1 default 路径不变(D60)
+```
+
+### Compatibility (D60 additive)
+
+- ✅ `runUp` 老函数体 0 行 change(只 dispatcher 多走一步 peek version)
+- ✅ `--remote` flag 仅在 `runUpDispatcher` 内部消费,默认 `""` (本地模式) = 老行为
+- ✅ v1 默认 9-service 内嵌 stack 行为完全一致(`wau stack up --dry-run` 还是 10 services topo)
+- ✅ `--remote` + v1 schema 报清晰错误(避免 silent fallthrough)
+
+### Reference
+
+- **代码**:up_v11.go +378 行(命令文件)
+- **测试**:up_v11_test.go +341 行 / 20 tests 全 PASS
+- **下 1 段**:4.1.6 — 文档 + e2e smoke + closure doc
+- **canonical plan**:`~/WAU-develop/develop-log/wau-cli/v1.1.0-wau-stack-yml/plan.md` §4.1.5
+
+---
+
 ## [Unreleased] — v1.1.0 子项 4.1.4 — SSH push / remote exec 基础层
 
 ### Added
