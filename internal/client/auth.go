@@ -11,6 +11,7 @@
 package client
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -130,4 +131,48 @@ func (p *CredentialsProvider) Set(c *Credentials) {
 	p.mu.Lock()
 	p.creds = c
 	p.mu.Unlock()
+}
+
+// LoginOptions 登录参数(P4.3 wau auth login 顶层入口)。
+type LoginOptions struct {
+	BaseURL  string // kernel address, e.g. http://localhost:18400
+	Role     string // agent role
+	Username string
+	Password string
+	Endpoint string // 可选:override kernel endpoint
+}
+
+// Login 调 kernel /v1/l5/login 拿 token,返回 *Credentials(不自动存盘)。
+//
+// P4.3 — `wau auth login` 和 `wau agent login` 都调这个。
+// 错误返回:
+//   - 网络/HTTP 错误(包装)
+//   - !resp.OK → fmt.Errorf("login failed: %s", resp.Error)
+func Login(ctx context.Context, opts LoginOptions) (*Credentials, error) {
+	if opts.Username == "" || opts.Password == "" {
+		return nil, fmt.Errorf("username and password are required")
+	}
+	c := NewClient(Options{
+		BaseURL: opts.BaseURL,
+		Role:    opts.Role,
+	})
+	resp, err := c.L5Login(ctx, &L5LoginRequest{
+		Username: opts.Username,
+		Password: opts.Password,
+		Endpoint: opts.Endpoint,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("login HTTP call failed: %w", err)
+	}
+	if !resp.OK {
+		return nil, fmt.Errorf("login failed: %s", resp.Error)
+	}
+	creds := &Credentials{
+		AccessToken:  resp.AccessToken,
+		RefreshToken: resp.RefreshToken,
+		ExpiresAt:    resp.ExpiresAt,
+		UserID:       resp.UserID,
+		Endpoint:     opts.Endpoint,
+	}
+	return creds, nil
 }

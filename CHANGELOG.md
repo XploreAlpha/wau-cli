@@ -1,5 +1,84 @@
 ## [Unreleased] — v1.0.0 "Phoenix" ⭐wau stack + 第二刀 HTTP client 重构 + 第三刀 binary 安装验证 (2026-08-20, per visa demo + 子项 4.1)
 
+### Added — 第四刀 P4.3(2026-08-24,v1.0.1-p4.3)— `wau auth login / logout / whoami`
+
+- **顶层 `wau auth login / logout / whoami`** 子命令组(per D74 JWT 凭证流程):
+  - 类比 `docker login / logout` / `npm login / whoami` / `kubectl auth whoami` / `gh auth login`
+  - **复用** `internal/client/auth.go` 的 `Credentials` + `LoadCredentials` + `Save`(已有)
+  - **新增** `client.Login(ctx, opts)` helper:`wau auth login` + `wau agent login` 都调它(DRY)
+- **`wau auth login`** (交互式 / `--user` + `--password` / `--endpoint` / `--no-store`):
+  - 调 kernel `POST /v1/l5/login`(已存在,per D74)
+  - 拿 4-claim JWT access_token + refresh_token(per D66=B)
+  - 存到 `~/.wau/credentials` (mode 0600)
+- **`wau auth logout`**:`os.Remove(~/.wau/credentials)`,无凭证 → 友好提示(exit=0,非 error)
+- **`wau auth whoami`**:读本地凭证,显示 user_id / expires_at(剩余时间)/ endpoint / token 前 20 字符
+  - 无凭证 → 提示 `wau auth login`
+  - token 过期 / 即将过期(<5m) → ⚠️ 警告
+- **`internal/cmd/auth/`** package (~340 LoC + 11 tests):
+  - `auth.go` NewAuthCmd factory(顶层子命令组,跟 `wau stack` 风格一致)
+  - `login.go` NewLoginCmd + runAuthLogin
+  - `logout.go` NewLogoutCmd + runAuthLogout
+  - `whoami.go` NewWhoamiCmd + runAuthWhoami + formatDuration
+  - `SetAccessors(kernelAddr, role func() string)` — 由 root.go 注入(避免 cmd 包 cycle)
+
+### Tests — 第四刀 P4.3
+
+- `internal/client/auth_test.go`(P4.3 新增 11 tests):
+  - `Login_Success` mock server 4 field 全填
+  - `Login_BadCreds` !OK → 友好 error
+  - `Login_MissingFields` username/password 缺 → error
+  - `Login_ServerError` 500 → error
+  - `SaveLoadCredentials_Roundtrip` 内容一致
+  - `SaveCredentials_FilePermission` 写出来 mode=0600
+  - `LoadCredentials_NotExist` 不存在 → 空 Credentials(非 error)
+  - `LoadCredentials_DefaultPath` 调用 "" → 用默认 ~/.wau/credentials
+  - `DefaultCredentialsPath` 后缀 = .wau/credentials
+  - `Valid_FreshToken` / `Valid_ExpiredToken` / `Valid_NoExpiry` / `Valid_NilOrEmpty`
+  - `CredentialsProvider_Token` / `CredentialsProvider_Expired`
+- `internal/cmd/auth/auth_test.go`(P4.3 11 tests):
+  - `NewAuthCmd_BasicArgs` Use=auth + 3 subcommand 注册
+  - `NewLoginCmd_BasicArgs` 4 flag
+  - `RunAuthLogin_NoUserPass` stdin closed → error
+  - `RunAuthLogin_RequiresStoreFlag` --no-store flag 注册
+  - `NewLogoutCmd_BasicArgs` Use=logout + RunE
+  - `RunAuthLogout_NoCredentials` 文件不存在 → 友好提示 + exit=0
+  - `RunAuthLogout_RemoveExisting` 删除 + verify 不存在
+  - `NewWhoamiCmd_BasicArgs` Use=whoami + alias=status
+  - `RunAuthWhoami_NotLoggedIn` 无凭证 → 提示
+  - `RunAuthWhoami_LoggedIn` 有凭证 → 显示 user_id / Expires / Token / Endpoint
+  - `RunAuthWhoami_ExpiredToken` 过期 → ⚠️ EXPIRED 警告
+- **全 PASS**(client 11 + auth 11 = 22 新,0 回归,`TestLsCmd_EmptyState` P4.2 stack down 清理后也已 PASS)
+
+### smoke test — P4.3 (7 case)
+
+| # | 命令 | 结果 |
+|---|------|------|
+| 1 | `wau auth whoami`(无 creds) | ✅ "Not logged in. Hint: run `wau auth login`" |
+| 2 | `wau auth logout`(无 creds) | ✅ "Not logged in (no credentials file)" + exit=0 |
+| 3 | 写 fake creds + `wau auth whoami` | ✅ 显示 user=alice / Expires=2h / Endpoint / Token prefix |
+| 4 | `wau auth logout`(有 creds) | ✅ "✓ Credentials removed" + 文件真删除 |
+| 5 | `wau auth login` 本机 kernel | ✅ 友好错误 "dial tcp 127.0.0.1:18400: connection refused" |
+| 6 | `wau auth login --addr http://43.134.126.126:18400` | ✅ **远程 server 真实响应** "API error (status 401): invalid credentials" — 证明端到端 POST /v1/l5/login 工作 |
+| 7 | `wau auth login --no-store --user alice --password x` | ✅ login 失败但不写 creds 文件 |
+
+### Compatibility (P4.3 D60 additive)
+
+- `wau agent login` **保留**(L5 包管理器旧入口,向后兼容)
+- `wau auth login` 是**新增**顶层 OS-level 入口(都调 `client.Login`,DRY)
+- 不改 server 端(`/v1/l5/login` 已有)
+- 不改 token 格式(per D66=B 4-claim JWT)
+- 不引入新 dep(纯 stdlib + 复用已有 client + cobra)
+- password 仍明文 stdin(已知 P4.x 改进:用 `golang.org/x/term.ReadPassword`)
+
+### Reference
+- D74 凭证流程:`feedback-wau-cli-purpose`
+- D66=B 4-claim JWT:`project-wau-v1-1-0-deployment-plan-main-2026-08-19`
+- 已有 `wau agent login`:`internal/cmd/agent/login.go`(2026-07-10 旧路径)
+- P4.2 closure:`~/WAU-develop/develop-log/wau-cli/v1.0.1-wau-init-configs/closure.md`
+- OS CLI 定位:`feedback-wau-cli-purpose`
+
+---
+
 ### Added — 第四刀 P4.2(2026-08-24,v1.0.1-p4.2)— `wau stack init-configs`
 
 - **`wau stack init-configs`** 子命令(per stage3 §5.4 "缺 configs/*.yaml 是常见 onboarding 障碍" + 子项 4.3):

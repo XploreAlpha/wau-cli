@@ -195,6 +195,64 @@ wau stack init-configs --dry-run
 
 **前提**:跑完后 `wau stack up --demo` 才能完整启动 wau-store / wau-llm-router / wau-edge / wau-channel(否则还是 stage3 的 "config not found" 报错)。
 
+### `wau auth` ⭐ v1.0.1 P4.3 (2026-08-24)
+
+Manage WAU user authentication. Equivalent to `docker login` / `npm login` / `kubectl auth whoami`.
+
+```bash
+# 登录(交互式)
+wau auth login
+# Username: alice
+# Password: ********
+
+# 登录(非交互式,脚本用)
+wau auth login --user alice --password s3cret
+
+# 自定义 endpoint
+wau auth login --endpoint http://localhost:18400
+
+# 不存盘(测试用)
+wau auth login --no-store
+
+# 当前用户
+wau auth whoami
+# User:        alice
+# Expires:     2026-08-25 14:30:00 +08:00 (in 24h)
+# Endpoint:    http://localhost:18400
+# Token:       eyJhbGciOiJIUzI1NiIs...
+
+# 登出(删 ~/.wau/credentials)
+wau auth logout
+```
+
+**Subcommands**: `login` · `logout` · `whoami`
+
+**Flags (login)**: `--user` · `--password` · `--endpoint` · `--no-store`
+
+**凭证存储**:`~/.wau/credentials`(mode 0600),格式:
+```json
+{
+  "access_token": "<jwt>",
+  "refresh_token": "<jwt-or-opaque>",
+  "expires_at": 1234567890,
+  "user_id": "alice",
+  "endpoint": "http://..."
+}
+```
+
+**实现**:
+- 复用 `internal/client/auth.go` 的 `Credentials` / `LoadCredentials` / `Save`(已有)
+- 新增 `client.Login(ctx, opts)` helper — `wau auth login` + `wau agent login` 都调它(DRY)
+- 调 kernel `POST /v1/l5/login`(已存在 per D74)
+- JWT 4-claim 格式(per D66=B):`sub` / `exp` / `iat` / `role`
+
+**已知限制**:
+- password stdin 明文显示(后续 P4.x 用 `golang.org/x/term.ReadPassword` masking)
+- `wau auth refresh` 未实现(等 `client.AuthProvider.Refresh` stub 完整化)
+- 不接 OAuth / SSO(后续 D75/D77)
+
+**跟 `wau agent login` 关系**:`wau agent login` 是 L5 包管理器 specific 入口(2026-07-10 旧路径,保留);`wau auth login` 是 OS-level 顶层入口(2026-08-24 新增)。两者都调 `client.Login`,行为一致,凭证同文件。
+
 ### `wau health`
 
 Check kernel health.
