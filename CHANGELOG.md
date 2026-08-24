@@ -1,3 +1,48 @@
+## [Unreleased] — v1.1.0 子项 4.1.4 — SSH push / remote exec 基础层
+
+### Added
+
+- **`internal/stack/remote/`** — SSH 远端执行 client + push + process 管理
+  - `client.go` — `RemoteClient` interface + `*Client`(shell-out 到 `ssh`/`scp` CLI,0 新 dep)
+    - `Dial(addr, opts)` — 解析 `user@host[:port]` / `ssh://user@host[:port]`
+    - `Exec(ctx, cmd)` / `ScpFile(ctx, src, dst, mode)` / `Stat(ctx, path)` / `MkdirAll(ctx, path)` / `Close()`
+    - ssh flags:`-o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 -i <key>`
+    - 端口冲突按 host-side port 比较,scp mode 默认 0755(binary)/ 0600(secret)
+  - `push.go` — `PushStack(ctx, client, stack, opts)` 把 binary + configs + secrets 推到远端
+    - 默认目录:`/usr/local/bin` (binary) / `~/.wau/configs` / `/run/secrets`
+    - `PushOpts.DryRun` 模式只打印 plan 不真传
+    - `kind=external` skip / `kind=docker` warn + skip
+    - secrets 支持 `file:` / `env:` 两种源,自动 chmod 0600
+  - `proc.go` — `StartRemote(ctx, client, svc, name)` / `StopRemote` / `StatusRemote` / `StopAll`
+    - StartRemote:`setsid bash -c '<cmd> >log 2>&1 & echo $! > pidfile; disown'` + cat pidfile 拿 PID
+    - StopRemote:`pkill -TERM -f wau-<name>` → 5s 等 → `pkill -KILL -f wau-<name>` → rm pidfile/log(per KillProcessGroup 思路)
+    - StatusRemote:`pgrep -f wau-<name>` 拿 PID(exit 1 = not found,不报错)
+  - `dial.go` — `DialRemote(addr)` wrapper:空 addr → 本地模式(nil, nil),非空 → ping 验证连通
+  - `remote_test.go` — **20 unit tests** 全 PASS (parseAddr × 5 + Dial × 2 + PushStack × 5 + StartRemote × 3 + StopRemote × 1 + StatusRemote × 2 + DialRemote × 2)
+
+### Design choice: shell-out, not crypto/ssh
+
+不引入 `golang.org/x/crypto/ssh` 包(避免新增 dep + key parsing 复杂度),而是用 `exec.CommandContext("ssh", ...)` / `exec.CommandContext("scp", ...)` shell-out。这样:
+- 0 新 dep(D60 spirit 干净)
+- 自动复用 user 的 `~/.ssh/config` + identity files
+- 测试可注入 mock(`RemoteClient` interface)— **unit test 完全离线**
+
+### Compatibility (D60 additive)
+
+- ✅ 0 modified files(纯新增 `internal/stack/remote/` 子目录)
+- ✅ 现有 `ProcessManager` / `loadStack` / `up.go` / `down.go` 完全不变
+- ✅ `--remote` flag wiring 推迟到 **4.1.5** — 本段只交付 SSH 层 + 测试
+- ✅ `--remote ""` 默认(本地模式)— 老 `wau stack up/down` 用户 0 改动
+
+### Reference
+
+- **代码**:+1,033 行 (client.go 228 + dial.go 39 + proc.go 124 + push.go 206 + remote_test.go 436)
+- **测试**:+20 unit tests,全 PASS,全仓 12 包 0 回归
+- **下 1 段**:4.1.5 — `wau stack up --file wau-stack.yml --remote ssh://...` 集成
+- **canonical plan**:`~/WAU-develop/develop-log/wau-cli/v1.1.0-wau-stack-yml/plan.md` §4.1.4
+
+---
+
 ## [Unreleased] — v1.1.0 子项 4.1.3 — `wau stack validate` + status matrix 层
 
 ### Added
