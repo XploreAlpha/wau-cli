@@ -27,6 +27,7 @@ Subcommands:
   ls       List services with status (alias: status, ps)
   logs     Show logs for one or all services
   log      Show logs for a single service
+  validate Validate wau-stack.yml (schema + binary + port conflict)
 
 Examples:
   # Start the full demo stack (9 services)
@@ -55,6 +56,7 @@ See also: wau service <name> {start,stop,restart,logs} for per-service control.`
 	cmd.AddCommand(NewLogCmd())
 	cmd.AddCommand(NewStackLogsCmd())
 	cmd.AddCommand(NewInitConfigsCmd())
+	cmd.AddCommand(NewValidateCmd()) // 4.1.3 v1.1.0 子项 4.1
 
 	return cmd
 }

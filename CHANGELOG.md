@@ -1,3 +1,64 @@
+## [Unreleased] — v1.1.0 子项 4.1.3 — `wau stack validate` + status matrix 层
+
+### Added
+
+- **`wau stack validate`** — 新 subcommand,深校验 wau-stack.yml v1.1(schema + binary + port 冲突)
+  - `internal/stack/validate.go` — `ValidateV11(data, level)` + `ValidationReport`/`ValidationIssue`/`ValidationService`
+  - `internal/stack/validate_test.go` — **8 unit tests** 全 PASS (Basic_OK / ParseError / PortConflict / BinaryNotFound / NoHealthcheck / ExternalNoHealthcheck / ServicesSummary / String)
+  - `internal/cmd/stack/validate.go` — Cobra factory `NewValidateCmd` + `runValidate`(table / json)
+  - `internal/cmd/stack/validate_test.go` — **3 unit tests** 全 PASS (Flags / DefaultStack / BadYAML)
+  - `internal/cmd/stack/stack.go` — register `NewValidateCmd`(+1 line)
+- **Status matrix 层(供 cmd 后续接入)** — `internal/stack/status.go` + `status_test.go`
+  - `StatusV11(stack, runtime, opts)` → `StatusReport` matrix(name/kind/binary/pid/ports/health/uptime/last_error)
+  - `HealthState` 枚举:unknown / running / starting / degraded / stopped / failed / external
+  - `ProbePorts` 开关:对 binary 服务的 healthcheck.tcp 跑短超时端口探测(本机测试用 `net.Listen` 验证)
+  - **9 unit tests** 全 PASS (NilStack / NoRuntime / Degraded / FailedState / ProbePorts_OK / ProbePorts_Fail / LoadRuntime_NoFile / String / Counters)
+
+### Validation depth
+
+| Level | 校验项 |
+|-------|--------|
+| `basic` | ParseV11 已保证 schema + topo + depends_on |
+| `runtime`(默认) | basic + binary 存在性(`DefaultLookup()`)+ host port 冲突 + healthcheck 缺失 info |
+
+### Exit codes (validate subcommand)
+
+| Code | 含义 |
+|------|------|
+| 0 | healthy(0 errors / 0 warnings) |
+| 1 | errors(端口冲突 / parse failure) |
+| 2 | warnings only(binary 不在 PATH,但 schema OK) |
+
+### Compatibility (D60 additive)
+
+- ✅ `internal/cmd/stack/stack.go` 只 +2 行(register `NewValidateCmd` + doc line)
+- ✅ 现有 `up` / `down` / `ls` / `status` / `restart` / `logs` / `init-configs` subcommand 完全不变
+- ✅ 老 v1 path `loadStack(...)` 完全不动(validate 走 ParseV11 新路径)
+- ✅ `internal/stack/runtime.go` + `process.go` + `default.go` 0 改
+
+### Real-run verification
+
+```
+$ wau stack validate
+Stack: wau-default (release: v1.3.4, level: runtime)
+Services: 10
+Issues: 0 errors, 0 warnings, 0 infos
+
+  ✓ redis                binary=             ports=1 healthcheck=true
+  ✓ registry             binary=registry     ports=1 healthcheck=true
+  ✓ wau-agent            binary=wau-agent    ports=2 healthcheck=true
+  ...
+```
+
+### Reference
+
+- **代码**:+1,032 行 (validate.go 227 + status.go 191 + validate_test.go 207 + status_test.go 203 + cmd/validate.go 131 + cmd/validate_test.go 73)
+- **测试**:stack pkg 85 → 102 tests (+17),全 PASS,全仓 11 包 0 回归
+- **下 1 段**:4.1.4 — SSH push / remote exec(`--remote ssh://...`)
+- **canonical plan**:`~/WAU-develop/develop-log/wau-cli/v1.1.0-wau-stack-yml/plan.md` §4.1.3
+
+---
+
 ## [Unreleased] — v1.1.0 子项 4.1.2 — embedded default `wau-stack.yml`
 
 ### Added
