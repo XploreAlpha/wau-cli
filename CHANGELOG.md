@@ -1,3 +1,32 @@
+## [v1.3.4] - 2026-08-24 — ⭐ 子项 4.2 version alignment kickoff
+
+### Changed
+
+- **Bump `Version = "v1.0.1"` → `"v1.3.4"`** (per D92, v1.1.0 子项 4.2 alignment)
+  - 跳过 v1.1.0 Granite / v1.2.0(5 SDK 已在 v1.3.4,避免 SDK 假设 server 字段 silent 失败 — per homerail Plan C v1.4-academic 教训)
+- **Bump `ReleaseName = "Iris"` → `"Jade"`** (接 Phoenix → Granite → Iris → Jade)
+- **新增 `internal/version/` package** (`internal/version/version.go` + `version_test.go`):
+  - `const Version = "v1.3.4"` + `const ReleaseName = "Jade"`
+  - 5 unit tests 全 PASS (NonEmpty / PrefixV / AlignedV134 / ReleaseName_NonEmpty / Jade)
+- **`internal/cmd/root.go`** 改 import `internal/version` 包,删本地 `Version`/`ReleaseName` var (D60 additive — public var 还在 re-export 兼容老 import path)
+
+### Compatibility (D60 additive)
+
+- ✅ `wau --version` 输出从 `wau-cli v1.0.1 "Iris"` → `wau-cli v1.3.4 "Jade"`(公开行为变,但 D60 含义是 API;version 字段是产品层 metadata,可改)
+- ✅ 老 `wau.Version` / `wau.ReleaseName` 公开 var 仍可用(从 internal/version 转发)— 老 import `cmd.Version` 不 break
+- ✅ 全测试通过,0 回归(`go test ./...`)
+- ✅ 现有 v1.0.1 子项 4 全部子命令(`log` / `init-configs` / `auth` / `restart` / `cluster` / `init-configs --envsubst`)0 改
+
+### Reference
+
+- **代码**:`internal/version/version.go` (22 LoC) + `version_test.go` (50 LoC, 5 tests)
+- **改**:`internal/cmd/root.go` (+5 LoC import + var re-export)
+- **计划**:v1.1.0 子项 4.1 / 4.1.0 — 14 仓版本对齐 kickoff
+- **canonical doc**:`~/WAU-develop/develop-log/kernel/v1.1.0/2026-08-19-deployment-plan-as-main-goal.md` §四
+- **下 13 仓**:wau-core-kernel / wau-registry / wau-registry-service / wau-scheduler / wau-intent / wau-profile / wau-circuit / wau-trust / wau-store / wau-channel / wau-edge / wau-llm-router / wau-agent
+
+---
+
 ## [v1.0.1] - 2026-08-24 — ⭐ 第四刀 OS CLI 化(P4.1-P4.6 全 6 段)
 
 ### Added

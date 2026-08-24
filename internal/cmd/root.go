@@ -15,14 +15,17 @@ import (
 	"github.com/wau/wau-cli/internal/cmd/stack"
 	"github.com/wau/wau-cli/internal/cmd/task"
 	wauconfig "github.com/wau/wau-cli/internal/cmd/config"
+	"github.com/wau/wau-cli/internal/version"
 )
 
 var (
-	// Version of wau-cli
-	Version = "v1.0.1"
+	// Version of wau-cli (sourced from internal/version package — per D92
+	// v1.1.0 子项 4.2 version alignment, all 14 server 仓 + wau-cli share
+	// the same const value).
+	Version = version.Version
 
-	// ReleaseName of the current version (e.g. "Phoenix", "Iris")
-	ReleaseName = "Iris"
+	// ReleaseName of the current version (e.g. "Phoenix", "Iris", "Jade").
+	ReleaseName = version.ReleaseName
 
 	// Global flags
 	cfgFile     string
