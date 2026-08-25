@@ -61,6 +61,15 @@ See also: wau service <name> {start,stop,restart,logs} for per-service control.`
 	return cmd
 }
 
+// Public accessors for top-level `wau up/down/status` aliases (4.3 MVP, v1.1.0).
+//
+// D60 additive:这些函数返回一个新的 cobra.Command 实例,共享包级 flag var(upFile / downFile / lsFile)。
+// 由于 cobra 每个 root 只会调一次 flag parse,共享 flag var 在 root + stack 双注册下是安全的
+// (顺序执行,不并发)。
+func UpCmd() *cobra.Command    { return newUpCmd() }
+func DownCmd() *cobra.Command  { return newDownCmd() }
+func LsCmd() *cobra.Command    { return newLsCmd() }
+
 // loadStack 解析 stack 配置(file flag → default stack)。
 //
 // 优先级:

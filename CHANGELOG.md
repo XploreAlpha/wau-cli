@@ -1,3 +1,56 @@
+## [Unreleased] — v1.1.0 子项 4.3 MVP — `wau` super-binary 顶层别名(`wau up/down/status/doctor`)
+
+### Added
+
+- **`wau up` / `wau down` / `wau status`** — 顶层 super-binary alias,等同 `wau stack up/down/ls`
+  - `internal/cmd/stack/stack.go` + 5 行:`UpCmd()` / `DownCmd()` / `LsCmd()` 公开 accessor
+  - `internal/cmd/root.go` + 4 行:`rootCmd.AddCommand(stack.UpCmd()/DownCmd()/LsCmd())`
+  - `wau status` 是 `wau ls` 的 alias(Use="ls", Aliases=[status,ps])
+- **`wau doctor`** — 离线 5 项诊断
+  - `internal/cmd/doctor.go` (NEW, ~280 行)
+    - 检查 1:wau-cli version
+    - 检查 2:`~/.wau` 目录存在 + 可写(自动 mkdir if missing)
+    - 检查 3:WAU_* env vars(数量,脱敏 — per [[feedback-api-key-leak-2026-07-30]] 任何 `WAU_*SECRET` value 不进 stdout)
+    - 检查 4:critical binaries in PATH(wau-core / wau-registry / wau-agent)
+    - 检查 5:`~/.wau/hosts` 可选文件
+  - 输出:彩色表格 / `--format json` / exit code 0=ok / 1=fail / 2=warn
+  - Alias:`wau diag`
+- **`cmd/wau/main.go`** — 加 `silentError` / `exitCoder` interface 探测,避免 doctor/其他 silent error 被 main 重打 "Error: ..." 前缀
+- **`internal/cmd/doctor_test.go`** (NEW, 12 tests):flag / 4 项 check / 脱敏验证 / JSON / silent error
+
+### Compatibility (D60 additive)
+
+- ✅ `internal/stack/stack.go` +5 行(纯 accessor)
+- ✅ `internal/cmd/root.go` +4 行(AddCommand × 4)
+- ✅ `internal/stack/up.go` / `down.go` / `ls.go` 0 行 change
+- ✅ 现有 `wau stack up/down/ls/logs/validate` 0 改动
+- ✅ `cmd/wau/main.go` 加 2 个 interface + 1 个 branch(向上兼容)
+
+### Real-run verification
+
+```bash
+$ wau up --dry-run              # 同 wau stack up
+$ wau down --help               # 同 wau stack down
+$ wau status --help             # 同 wau stack status/ls/ps
+$ wau doctor                    # 表格输出 + exit 1 (fail)
+$ wau doctor --format json      # 纯 JSON + exit 1
+```
+
+### Skipped (post-GA follow-up)
+
+- ❌ `wau exec` / `pull` / `update` / `backup` / `restore` — 推到 v1.1.x(用户要 manual test ASAP)
+- ❌ 14 仓 Dockerfile — 推到 v1.1.x(原本就是 follow-up #2)
+- ❌ 4.1.6 closure doc + e2e smoke — manual testing 本身即是 e2e
+
+### Reference
+
+- **代码**:`doctor.go` ~280 行 / `main.go` 加 ~25 行 / `stack.go` +5 行 / `root.go` +4 行
+- **测试**:`doctor_test.go` ~290 行 / 12 tests 全 PASS
+- **状态**:**v1.1.0 manual-test-ready**(4.1.5 等 push + 本段待 commit + push)
+- **下 1 段**:user manual testing + 4.1.5/4.3-MVP push → v1.1.0 GA 拍板
+
+---
+
 ## [Unreleased] — v1.1.0 子项 4.1.5 — `wau stack up --file --remote` 集成
 
 ### Added

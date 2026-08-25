@@ -98,6 +98,12 @@ func init() {
 	rootCmd.AddCommand(NewCompletionCmd())
 	rootCmd.AddCommand(stack.NewLogCmd()) // 顶层 `wau log <svc>` alias
 
+	// 4.3 MVP — 顶层 super-binary aliases(`wau up/down/status/doctor`)
+	rootCmd.AddCommand(stack.UpCmd())    // wau up       ≡ wau stack up
+	rootCmd.AddCommand(stack.DownCmd())  // wau down     ≡ wau stack down
+	rootCmd.AddCommand(stack.LsCmd())    // wau status   ≡ wau stack ls (Use=ls, Aliases=[status,ps])
+	rootCmd.AddCommand(newDoctorCmd())   // wau doctor   离线诊断
+
 	// Wire up accessors for sub-packages
 	agent.SetAccessors(GetKernelAddr, GetRole, GetOutputFmt)
 	task.SetAccessors(GetKernelAddr, GetRole, GetOutputFmt)
