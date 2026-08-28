@@ -1,35 +1,64 @@
 # wau-cli
 
+[English](README.md) | [中文](README.zh-CN.md)
+
+> **Official command-line client for [WAU-core-kernel](https://github.com/wau/core-kernel)** — the WAU OS-level control plane (analogous to `apt` / `kubectl` / `docker` / `aws-cli`).
+
 [![Version](https://img.shields.io/badge/version-v1.0.1-blue)](https://github.com/XploreAlpha/wau-cli/releases/tag/v1.0.1)
 [![Release](https://img.shields.io/badge/release-Iris-orange)](CHANGELOG.md)
+[![Next](https://img.shields.io/badge/next-v1.1.0_Jade-yellow)](CHANGELOG.md)
 [![Go](https://img.shields.io/badge/go-1.23+-00ADD8)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-passing-brightgreen)](https://github.com/XploreAlpha/wau-cli)
 
-> Official command-line client for [WAU-core-kernel](https://github.com/wau/core-kernel).
+**Current Release**: v1.0.1 **"Iris"** — OS CLI 化 GA (2026-08-24) 🌷
+**Next Release**: v1.1.0 **"Jade"** — manual-test ready (2026-08-24)
 
-`wau-cli` provides a `kubectl`/`docker`-like experience for managing WAU services, including agents, tasks, and kernel information.
-
-**Current Release**: v0.1.0 **"Genesis"** — First MVP 🎉
-
-See [CHANGELOG.md](CHANGELOG.md) for the version naming convention and history.
+See [CHANGELOG.md](CHANGELOG.md) for version history.
 
 ---
 
-## ✨ Features
+## 📑 Table of Contents
 
-- 🩺 **Health check** - Quickly verify kernel health status
-- 🤖 **Agent management** - List, get, register, deregister agents
-- 📋 **Task management** - Submit, query tasks
-- ⚙️ **Config management** - Initialize, validate, show configuration
-- 📊 **Multiple output formats** - Table, JSON, YAML, CSV
-- 🔐 **RBAC support** - Multiple role levels
-- 🚀 **Single binary** - No runtime dependencies
+1. [What is wau-cli](#1-what-is-wau-cli)
+2. [Features](#2-features)
+3. [Installation](#3-installation)
+4. [Quick Start](#4-quick-start)
+5. [Commands](#5-commands)
+6. [Output Formats](#6-output-formats)
+7. [Configuration](#7-configuration)
+8. [Roadmap](#8-roadmap)
+9. [Development](#9-development)
+10. [License](#10-license)
 
 ---
 
-## 📦 Installation
+## 1. What is wau-cli
 
-### From source
+`wau-cli` provides a `kubectl` / `docker` experience for managing WAU services — agents, tasks, kernels, and the 9-service local stack. It is **the single entry point** for the WAU OS, spanning the **Application**, **Developer**, **System**, and **Network** layers. One binary, zero runtime dependencies, D60-additive design.
+
+---
+
+## 2. Features
+
+| Feature | Description |
+|---------|-------------|
+| 🩺 **Health check** | Quickly verify kernel health status |
+| 🤖 **Agent management** | List, get, register, deregister agents |
+| 📋 **Task management** | Submit, query, list tasks |
+| ⚙️ **Config management** | Initialize, validate, show configuration |
+| 📊 **Multiple output formats** | Table, JSON, YAML, CSV |
+| 🔐 **RBAC support** | Multiple role levels |
+| 🚀 **Single binary** | No runtime dependencies |
+| 🐳 **Stack lifecycle** | `wau stack up/down/logs/restart` — docker-compose-like |
+| 🔑 **Auth (JWT 4-claim)** | `wau auth login/whoami/logout` |
+| 📈 **Cluster overview** | `wau cluster status/agents` |
+
+---
+
+## 3. Installation
+
+### 3.1 From source
 
 ```bash
 git clone https://github.com/wau/wau-cli
@@ -38,7 +67,7 @@ go build -o wau ./cmd/wau
 mv wau /usr/local/bin/
 ```
 
-### (Coming soon) Pre-built binaries
+### 3.2 Pre-built binaries (coming soon)
 
 ```bash
 # macOS
@@ -50,7 +79,7 @@ curl -fsSL https://wau.dev/install.sh | sh
 
 ---
 
-## 🚀 Quick Start
+## 4. Quick Start
 
 ```bash
 # 1. Initialize configuration
@@ -69,7 +98,7 @@ wau agent register \
   --skills medical,clinical
 
 # 5. Submit a task
-wau task submit "帮我查一下天气"
+wau task submit "Help me check the weather"
 
 # 6. Get task details
 wau task get task_1700000000
@@ -77,206 +106,179 @@ wau task get task_1700000000
 
 ---
 
-## 📚 Commands
+## 5. Commands
 
-### `wau stack` ⭐ v1.0.0 第一刀 (2026-08-20)
+### 5.1 `wau stack` — Local Stack Lifecycle
 
-Manage the local WAU stack — bring services up, tear them down, and inspect status.
+> ⭐ v1.0.0 First Cut (2026-08-20)
 
-Equivalent to `docker compose` / `kubectl` for a single-node WAU deployment.
+Manage the local WAU stack — bring services up, tear them down, inspect status, and restart. Equivalent to `docker compose` / `kubectl` for a single-node WAU deployment.
 
 ```bash
-# 架构可视化(签证 demo 必杀技)
-wau stack up --dry-run                # 打印 10-service 启动 plan
-wau stack up --demo --dry-run         # 同上,显式 demo profile
+# Architecture visualization
+wau stack up --dry-run                # Print 10-service startup plan
+wau stack up --demo --dry-run         # Same, explicit demo profile
 
-# 真起(需本机装 9 个 binary 到 ~/.wau/bin)
-wau stack up --demo                   # 起 9 服务 + 等 health check
-wau stack up --profile minimal --detach  # 只起 redis+core+registry,后台
+# Real startup (requires 9 binaries installed to ~/.wau/bin)
+wau stack up --demo                   # Start 9 services + wait for health check
+wau stack up --profile minimal --detach  # Only redis+core+registry, detached
 
-# 看状态
-wau stack ls                          # table 输出
-wau stack ls -o json                  # JSON 给脚本
+# Status
+wau stack ls                          # table output
+wau stack ls -o json                  # JSON for scripts
 wau stack ls -o yaml                  # YAML
 wau stack status                      # alias for ls
 wau stack ps                          # alias for ls
 
-# 关停
+# Shutdown
 wau stack down                        # SIGTERM → 5s → SIGKILL
-wau stack down --all                  # 关停 + 清 runtime state
-wau stack down --force                # 强杀(即使失败服务)
+wau stack down --all                  # Stop + clear runtime state
+wau stack down --force                # Force kill (even failed services)
 
-# 自定义 stack 文件
+# Custom stack file
 wau stack up --file /path/to/wau-stack.yml
-
-# 看日志(第四刀 P4.1,2026-08-24)
-wau log wau-core                          # 最后 50 行(顶层 alias)
-wau log wau-core --follow                 # tail -F,Ctrl-C 退出
-wau log wau-core --lines 200 --grep ERROR # 最后 200 行 + 过滤
-wau log wau-core --since 5m               # 最近 5 分钟
-wau stack logs                            # 所有服务并行 fanout
-wau stack logs wau-core --no-color        # 单服务,关彩色
 ```
 
-**内置 default 9-service stack**(per 19 仓真实架构):
+**Built-in default 9-service stack** (per 19-repo architecture):
 `redis + wau-core + registry + wau-store + wau-intent + wau-profile + wau-llm-router + wau-edge + wau-channel + wau-agent`
 
 **Profiles**:
-- `demo` — 9 服务全起(visa 拍板,2026-08-20)
-- `minimal` — 只起 redis + wau-core + registry(debug 用)
+- `demo` — All 9 services (visa demo profile)
+- `minimal` — Only redis + wau-core + registry (debug)
 
-### `wau log` / `wau stack logs` ⭐ v1.0.1 P4.1 (2026-08-24)
+---
+
+### 5.2 `wau log` / `wau stack logs` — Logs
+
+> ⭐ v1.0.1 P4.1 (2026-08-24)
 
 Show recent or follow logs for stack services. Equivalent to `docker logs` / `kubectl logs` / `journalctl -u`.
 
 ```bash
-# 单服务
-wau log wau-core                  # 最后 50 行
+# Single service
+wau log wau-core                  # Last 50 lines
 wau log wau-core --follow         # tail -F
-wau log wau-core --lines 200      # 最后 200 行(0 = 全部)
-wau log wau-core --grep ERROR     # 正则过滤(grep regex)
-wau log wau-core --since 5m       # 最近 5 分钟(解析 RFC3339Nano ts)
-wau log wau-core --no-color       # 关彩色
+wau log wau-core --lines 200      # Last 200 lines (0 = all)
+wau log wau-core --grep ERROR     # Regex filter
+wau log wau-core --since 5m       # Last 5 minutes
+wau log wau-core --no-color       # Disable color
 
-# 多服务 fanout(每服务带颜色前缀)
-wau stack logs                    # 所有 loggable 服务并行
-wau stack logs wau-core           # 单服务(同 `wau log`)
-wau stack logs --follow           # 全部 tail -F
+# Multi-service fanout (color prefix per service)
+wau stack logs                    # All loggable services in parallel
+wau stack logs wau-core           # Single service (same as `wau log`)
+wau stack logs --follow           # All tail -F
 wau stack logs --grep "ERROR|panic"
 ```
 
 **Flags**: `--follow/-f` · `--lines/-n` · `--grep` · `--since` · `--no-color`
 
-**实现**:
-- `--follow` 走 POSIX `tail -F`(处理 rotate/truncate,无需新 dep;Linux/macOS)
-- 非 follow 走 stdlib read+filter+tail-N
-- 多服务 fanout 用 `sync.WaitGroup` + `SafeWriter`(mutex 保护,多 goroutine 写 stdout 不交错)
-- 颜色:8-color cycler(cyan/yellow/magenta/green/blue/red/bright cyan/bright yellow),`--no-color` 关
-- `redis` external 服务在 fanout 中自动 skip(无 log file)
+---
 
-### `wau stack init-configs` ⭐ v1.0.1 P4.2 (2026-08-24)
+### 5.3 `wau stack init-configs` — Config Bootstrap
 
-Write embedded service config templates to `~/.wau/configs/`. Solves stage3's "missing configs/*.yaml" onboarding blocker.
+> ⭐ v1.0.1 P4.2 + P4.5 (2026-08-24)
+
+Write embedded service config templates to `~/.wau/configs/`. Solves the "missing configs/*.yaml" onboarding blocker.
 
 ```bash
-# 默认:写所有 4 个服务 config 到 ~/.wau/configs/
+# Default: write all 4 service configs
 wau stack init-configs
 
-# 单服务
+# Single service
 wau stack init-configs --service wau-store
 wau stack init-configs --service wau-llm-router   # alias: --service router
 
-# 自定义输出目录
+# Custom output dir
 wau stack init-configs --output-dir /etc/wau/configs
 
-# 覆盖已有文件
+# Overwrite existing
 wau stack init-configs --force
 
-# 只看 plan,不写
+# Plan only
 wau stack init-configs --dry-run
+
+# Env substitution (visa demo / local dev)
+wau stack init-configs --envsubst --force
 ```
 
-**4 个服务**(embed 在 wau-cli binary):
+**4 embedded services**:
+
 | Service | Config filename | Purpose |
 |---------|-----------------|---------|
-| `wau-store` | `store.yaml` | 存储(postgres + redis + admin) |
-| `wau-llm-router` | `router.yaml` | LLM 路由(thompson / newapi sidecar) |
-| `wau-edge` | `edge.yaml` | Edge 入口(WS / OpenAI compat / dashboard / newapi) |
-| `wau-channel` | `channel.yaml` | 通道(telegram / discord / slack / feishu / dingtalk / qq / email / webhook) |
+| `wau-store` | `store.yaml` | Storage (postgres + redis + admin) |
+| `wau-llm-router` | `router.yaml` | LLM routing (Thompson sampling) |
+| `wau-edge` | `edge.yaml` | Edge gateway (WS / OpenAI compat) |
+| `wau-channel` | `channel.yaml` | IM channels (Telegram / Discord / Slack / Feishu / DingTalk / QQ / Email / Webhook) |
 
-**Flags**: `--service` · `--output-dir` (default `~/.wau/configs`) · `--force` · `--dry-run` · `--envsubst` ⭐ P4.5
+**Flags**: `--service` · `--output-dir` (default `~/.wau/configs`) · `--force` · `--dry-run` · `--envsubst`
 
-**行为**:
-- 文件已存在 → 默认 skip(提示 `--force`)
+**Behavior**:
+- File exists → skip by default (提示 `--force`)
 - `--force` → overwrite
-- `--dry-run` → 只 print,不写
-- atomic write(`.tmp` + `rename`,无 partial file)
-- **默认不展开** env placeholder(如 `$WAU_STORE_PG_DSN`)— 由部署层脚本替换(production path)
-- **`--envsubst`** ⭐ P4.5 — 写文件前用 `os.ExpandEnv` 替换 `$VAR`(visa demo / 本地 dev)
+- `--dry-run` → only print
+- Atomic write (`.tmp` + `rename`, no partial files)
+- **No env expansion by default** (deployment script replaces `$VAR` per D55 SOP)
+- **`--envsubst`** → expand `$VAR` via `os.ExpandEnv` (visa demo / local dev)
 
-**`--envsubst` 用法**(v1.0.1 P4.5):
-```bash
-# Visa demo / local dev: env vars 替换占位符
-export WAU_STORE_PG_DSN="postgres://demo:demo@localhost:5432/wau_store"
-export WAU_STORE_PG_PASSWORD="pgpass"
-export WAU_STORE_REDIS_PASSWORD="redispass"
-export WAU_STORE_ADMIN_TOKEN="admintoken"
-wau stack init-configs --envsubst --force
+**Typical workflow**:
+- Local dev / visa demo → use `--envsubst` (fast)
+- Production deployment → no `--envsubst` (let `wau-deploy` script replace)
 
-# Dry-run 看看哪些 $VAR 被引用、env 是否 set
-wau stack init-configs --dry-run --envsubst
-# Variables referenced: ✓$WAU_STORE_PG_DSN, ✗$WAU_STORE_REDIS_PASSWORD, ...
+---
 
-# ⚠ 未 set 的 env var → 替换成 "" → exit 2 警告
-unset WAU_STORE_REDIS_PASSWORD
-wau stack init-configs --envsubst --force
-# ⚠ wau-store: 1 env var(s) were empty (will be replaced with ""): [WAU_STORE_REDIS_PASSWORD]
-# exit 2
-```
+### 5.4 `wau stack restart` — Restart
 
-**典型 workflow**:
-- **本地 dev / visa demo**: 用 `--envsubst`(快)
-- **生产部署**: 不传 `--envsubst`,保留 `$VAR` 字面值,让 `wau-deploy` 脚本(per D55 SOP)替换
+> ⭐ v1.0.1 P4.4 (2026-08-24)
 
-**前提**:跑完后 `wau stack up --demo` 才能完整启动 wau-store / wau-llm-router / wau-edge / wau-channel(否则还是 stage3 的 "config not found" 报错)。
-
-### `wau stack restart` ⭐ v1.0.1 P4.4 (2026-08-24)
-
-重启服务 — `down <svc>` + `up <svc>` 的便捷组合。类比 `docker compose restart` / `kubectl rollout restart`。
+Restart services — convenience combination of `down <svc>` + `up <svc>`. Analogous to `docker compose restart` / `kubectl rollout restart`.
 
 ```bash
-wau stack restart                       # 全栈(topo 反序 down + 正序 up)
-wau stack restart wau-core              # 单服务
-wau stack restart wau-core wau-router   # 多服务
-wau stack restart --wait-max 120s       # 自定义 health probe 超时
-wau stack restart --file my.yml         # 自定义 stack file
-wau stack reload wau-edge               # alias 同样工作
+wau stack restart                       # Full stack (topo reverse down + forward up)
+wau stack restart wau-core              # Single service
+wau stack restart wau-core wau-router   # Multiple services
+wau stack restart --wait-max 120s       # Custom health probe timeout
+wau stack restart --file my.yml         # Custom stack file
+wau stack reload wau-edge               # alias works the same
 ```
 
-**Flags**:
-- `--file <path>` — 自定义 wau-stack.yml
-- `--profile <name>` — 应用 profile 过滤
-- `--wait-max <duration>` — health probe 超时(默认 60s)
+**Flags**: `--file` · `--profile` · `--wait-max` (default 60s)
 
 **Exit codes**:
-- `0` — 全部成功
-- `1` — 有 service start 失败(进程没起来)
-- `2` — 全部 start 成功但 health check 没通过 / 有 service stop 失败
+- `0` — All succeeded
+- `1` — Some service start failed
+- `2` — All started but health check failed
 
-**典型场景**:
-- 改完 `~/.wau/configs/<service>.yaml` → `wau stack restart <service>`(只重启该 service)
-- 全栈滚更 → `wau stack restart`
-- 改了 init-configs(P4.2)→ `wau stack restart wau-router` 不动 redis / wau-core
+---
 
-**UX 注意**:health probe 失败时显示 `⚠ health warning (process up, pid N)` 而不是 `✗` — 进程已起但还没 ready,`wau stack ls` 能看到 status=running。
+### 5.5 `wau auth` — Authentication
 
-### `wau auth` ⭐ v1.0.1 P4.3 (2026-08-24)
+> ⭐ v1.0.1 P4.3 (2026-08-24)
 
 Manage WAU user authentication. Equivalent to `docker login` / `npm login` / `kubectl auth whoami`.
 
 ```bash
-# 登录(交互式)
+# Login (interactive)
 wau auth login
 # Username: alice
 # Password: ********
 
-# 登录(非交互式,脚本用)
+# Login (non-interactive, for scripts)
 wau auth login --user alice --password s3cret
 
-# 自定义 endpoint
+# Custom endpoint
 wau auth login --endpoint http://localhost:18400
 
-# 不存盘(测试用)
+# Don't persist (testing)
 wau auth login --no-store
 
-# 当前用户
+# Current user
 wau auth whoami
 # User:        alice
 # Expires:     2026-08-25 14:30:00 +08:00 (in 24h)
 # Endpoint:    http://localhost:18400
 # Token:       eyJhbGciOiJIUzI1NiIs...
 
-# 登出(删 ~/.wau/credentials)
+# Logout (delete ~/.wau/credentials)
 wau auth logout
 ```
 
@@ -284,153 +286,97 @@ wau auth logout
 
 **Flags (login)**: `--user` · `--password` · `--endpoint` · `--no-store`
 
-**凭证存储**:`~/.wau/credentials`(mode 0600),格式:
-```json
-{
-  "access_token": "<jwt>",
-  "refresh_token": "<jwt-or-opaque>",
-  "expires_at": 1234567890,
-  "user_id": "alice",
-  "endpoint": "http://..."
-}
-```
+**Credential storage** `~/.wau/credentials` (mode 0600), JWT 4-claim format (per D66=B): `sub` / `exp` / `iat` / `role`
 
-**实现**:
-- 复用 `internal/client/auth.go` 的 `Credentials` / `LoadCredentials` / `Save`(已有)
-- 新增 `client.Login(ctx, opts)` helper — `wau auth login` + `wau agent login` 都调它(DRY)
-- 调 kernel `POST /v1/l5/login`(已存在 per D74)
-- JWT 4-claim 格式(per D66=B):`sub` / `exp` / `iat` / `role`
+---
 
-**已知限制**:
-- password stdin 明文显示(后续 P4.x 用 `golang.org/x/term.ReadPassword` masking)
-- `wau auth refresh` 未实现(等 `client.AuthProvider.Refresh` stub 完整化)
-- 不接 OAuth / SSO(后续 D75/D77)
+### 5.6 `wau cluster` — Cluster Overview
 
-**跟 `wau agent login` 关系**:`wau agent login` 是 L5 包管理器 specific 入口(2026-07-10 旧路径,保留);`wau auth login` 是 OS-level 顶层入口(2026-08-24 新增)。两者都调 `client.Login`,行为一致,凭证同文件。
+> ⭐ v1.0.1 P4.6 (2026-08-24)
 
-### `wau health`
-
-Check kernel health.
+Cluster overview — composes `/health` + `/kernel/info` + `/registry/agents` into a unified view. Analogous to `kubectl cluster-info` / `docker system info`.
 
 ```bash
-wau health                  # Simple check
-wau health --wait           # Wait for healthy
-wau health --wait --timeout 60s
-wau health --addr http://43.134.126.126:18400   # 远端
-```
+# Cluster status (3 endpoints concurrent)
+wau cluster status                              # Local kernel
+wau cluster status --addr http://43.134.126.126:18400  # Remote server
+wau cluster status --json                       # JSON output
 
-### `wau cluster` ⭐ v1.0.1 P4.6 (2026-08-24)
-
-集群总览 — 把 `/health` + `/kernel/info` + `/registry/agents` 三个 endpoint 组合成统一视图。类比 `kubectl cluster-info` / `docker system info`。
-
-```bash
-# 集群状态(并发调 3 endpoint)
-wau cluster status                              # 本地 kernel
-wau cluster status --addr http://43.134.126.126:18400  # 远程 server
-wau cluster status --json                       # JSON 输出
-
-# 集群 agent 列表
+# Cluster agent list
 wau cluster agents
 wau cluster agents --skill multi_agent
 wau cluster agents --status online --json
 ```
 
 **Flags**:
-- `status` -- `--json` / `--timeout` (默认 10s per endpoint)
-- `agents` -- `--json` / `--page` / `--page-size` / `--skill` / `--status` / `--search`
+- `status` — `--json` / `--timeout` (default 10s per endpoint)
+- `agents` — `--json` / `--page` / `--page-size` / `--skill` / `--status` / `--search`
 
 **Exit codes**:
-- `0` — 3 endpoint 全成功
-- `1` — 3 endpoint 全 fail(kernel unreachable)
-- `2` — partial(至少 1 个 OK,其它 fail)— 标 ⚠
+- `0` — All 3 endpoints OK
+- `1` — All 3 failed (kernel unreachable)
+- `2` — Partial (at least 1 OK, others failed)
 
-**真实输出示例**(对 `http://43.134.126.126:18400` 远程 server):
-```
-Cluster: http://43.134.126.126:18400
-Fetched: 2026-08-24T16:33:49+08:00
+---
 
-  ✓ Health:      ok
-    Version:     v0.5.1
-    Uptime:      40d 2h
-    Redis:       connected
+### 5.7 Standard Commands
 
-  ✓ Kernel:      v0.5.1
-    Started:     2026-07-15T14:33:47.009784526+08:00
-    Modules:     scheduler, registry, intent, circuit, heartbeat
-
-  ✓ Agents:      1 registered
-
-✓ All endpoints healthy.
-```
-
-**设计要点**:
-- **不新增 kernel 端点** — kernel v0.5.1 还没 `/v1/cluster/*`,P4.6 走纯 CLI 组合
-- **并发 fetch**(3 goroutine + `sync.WaitGroup`)— 比串行快 ~3x
-- **D60 additive** — `wau health` / `wau kernel info` / `wau agent list` 继续可用,只是 cluster 是更高层 wrapper
-
-### `wau kernel`
-
-Show kernel information.
+#### `wau health` / `wau kernel`
 
 ```bash
-wau kernel info             # Show detailed info
-wau kernel version          # Show version
+wau health                  # Simple check
+wau health --wait           # Wait for healthy
+wau health --wait --timeout 60s
+wau health --addr http://43.134.126.126:18400   # Remote
+
+wau kernel info             # Detailed info
+wau kernel version          # Version
 ```
 
-### `wau agent`
-
-Manage agents.
+#### `wau agent`
 
 ```bash
-wau agent list                              # List all agents
+wau agent list                              # List all
 wau agent list --page 2 --page-size 50      # Pagination
 wau agent list --skill medical              # Filter by skill
 wau agent list --status online              # Filter by status
 wau agent list --search fox                 # Search by name
-wau agent get fox                           # Get agent details
-wau agent score fox                         # Get agent score
-wau agent register --name fox --url ...     # Register new agent
-wau agent deregister fox                    # Remove agent
+wau agent get fox                           # Get details
+wau agent score fox                         # Get score
+wau agent register --name fox --url ...       # Register
+wau agent deregister fox                    # Deregister
 
-# L5 包管理器(per D72/D73/D74,2026-07-10)— 类 apt
-wau agent search medical --universe medical        # 类 apt search
-wau agent install fox-medical                       # 类 apt install
-wau agent install fox-medical --version=1.2.3      # 锁版本
-wau agent update                                    # 全更新
-wau agent update fox-medical                        # 单独更新
-wau agent uninstall fox-medical                     # 卸载
-wau agent uninstall fox-medical --purge             # 全删
-wau agent login                                      # 登入 wau-registry
-wau agent publish --from ./weather-bot              # 发布到 registry
+# L5 package manager (apt-like)
+wau agent search medical --universe medical        # apt search
+wau agent install fox-medical                       # apt install
+wau agent install fox-medical --version=1.2.3      # Pin version
+wau agent update                                    # Update all
+wau agent update fox-medical                        # Update one
+wau agent uninstall fox-medical                     # Uninstall
+wau agent uninstall fox-medical --purge             # Full delete
+wau agent login                                      # Login registry
+wau agent publish --from ./weather-bot              # Publish
 ```
 
-### `wau task`
-
-Manage tasks.
+#### `wau task`
 
 ```bash
-wau task submit "帮我查天气"                 # Submit task
-wau task get task_1700000000                # Get task details
-wau task list                               # List recent tasks
+wau task submit "Help me check the weather"   # Submit task
+wau task get task_1700000000                  # Get details
+wau task list                                 # List recent
 ```
 
-### `wau node` ⭐ 第二刀 (2026-08-20 visa demo 验证)
-
-List and inspect WAU network nodes. In WAU, a "node" = a registered agent instance (each `agent_name` registered via `/registry/agents/register`).
+#### `wau node` / `wau peer` (libp2p-style)
 
 ```bash
-wau node ls                              # List all online nodes (table)
+wau node ls                              # List online nodes
 wau node ls -o json                      # JSON for scripts
-wau node ls --addr http://43.134.126.126:18400   # remote
+wau node ls --addr http://43.134.126.126:18400   # Remote
 wau node info fox-medical                # Detailed status for one node
 wau peer ls                              # Alias (libp2p-style)
 ```
 
-**Tolerant decoder**: server may return either `{"agents":[...]}` or raw `[...]` — client auto-detects.
-
-### `wau completion` ⭐ 第二刀
-
-Generate shell completion script.
+#### `wau completion`
 
 ```bash
 source <(wau completion bash)                                              # bash → ~/.bashrc
@@ -439,20 +385,18 @@ wau completion fish | source                                              # fish
 wau completion powershell | Out-String | Invoke-Expression                # powershell
 ```
 
-### `wau config`
-
-Manage wau-cli configuration.
+#### `wau config`
 
 ```bash
 wau config init                  # Create config file
-wau config validate              # Validate config
-wau config show                  # Show current config
+wau config validate              # Validate
+wau config show                  # Show current
 wau config show -o json          # JSON format
 ```
 
 ---
 
-## 🎨 Output Formats
+## 6. Output Formats
 
 All list/get commands support multiple output formats:
 
@@ -465,35 +409,20 @@ wau agent list -o csv      # CSV (for spreadsheets)
 
 ---
 
-## 🔐 RBAC Roles
+## 7. Configuration
 
-Specify role with `--role` flag:
+### 7.1 Config file location
 
-| Role | Description | Permissions |
-|------|-------------|-------------|
-| `kernel_core` | Kernel internal use | All operations |
-| `trusted_agent` | Trusted internal agent (TrustScore >= 0.7) | Schedule, read-only |
-| `external_agent` | External agent (default) | Submit only |
-
-```bash
-wau --role kernel_core agent list
-wau --role trusted_agent task submit "..."
-```
-
----
-
-## ⚙️ Configuration
-
-Config file location (searched in order):
+Searched in order:
 1. `--config` flag value
 2. `./config.yaml` (current directory)
 3. `~/.wau/config.yaml`
 
-Example (`~/.wau/config.yaml`):
+### 7.2 Example (`~/.wau/config.yaml`)
 
 ```yaml
 kernel:
-  addr: "http://43.134.126.126:18400"   # 生产服务器(per 2026-08-20 visa demo)
+  addr: "http://43.134.126.126:18400"   # Production server
   role: "external_agent"
   timeout: 30s
 
@@ -505,26 +434,96 @@ logging:
   level: "info"
 ```
 
-**远端访问**:所有 L5 命令支持 `--addr` flag,临时覆盖 `kernel.addr`(per wau-cli root.go L77)。
-示例:`wau agent search medical --addr http://43.134.126.126:18401 --universe medical`
+### 7.3 Remote access via `--addr`
+
+All L5 commands support `--addr` flag to override `kernel.addr` temporarily.
+
+```bash
+wau agent search medical --addr http://43.134.126.126:18401 --universe medical
+```
+
+### 7.4 RBAC Roles
+
+| Role | Description | Permissions |
+|------|-------------|-------------|
+| `kernel_core` | Kernel internal use | All operations |
+| `trusted_agent` | Trusted internal agent (TrustScore ≥ 0.7) | Schedule, read-only |
+| `external_agent` | External agent (default) | Submit only |
+
+```bash
+wau --role kernel_core agent list
+wau --role trusted_agent task submit "..."
+```
 
 ---
 
-## 🛠 Development
+## 8. Roadmap
 
-### Build
+`wau-cli` uses **SemVer + codename** dual-track versioning, inspired by [HashiCorp](https://github.com/hashicorp) (Terraform / Vault / Consul).
+
+### 8.1 Current Release
+
+```
+v1.0.1 "Iris" 🌷 — OS CLI 化 GA (2026-08-24)
+```
+
+### 8.2 Naming Rules
+
+- **Alphabetical order**: A → B → C → ...
+- **Theme**: Nature / animals / minerals
+- **Format**: Single word, capitalized first letter
+
+### 8.3 Version History
+
+| Version | Codename | Theme | Status |
+|---------|----------|-------|--------|
+| v0.1.0 | Genesis | Genesis | MVP released |
+| v0.9.0 | Acorn | Acorn | Pre-OS CLI |
+| v1.0.0 | Phoenix | Phoenix | Pre-GA |
+| **v1.0.1** | **Iris** | **Iris** | **OS CLI 化 GA ✅ (2026-08-24)** |
+| **v1.1.0** | **Jade** | **Jade** | **manual-test ready ✅ (2026-08-24)** |
+| v1.1.x | (TBD) | (TBD) | Post-GA patches |
+| v1.2.0 | (TBD) | (TBD) | ISO image release |
+| v1.3.0 | (TBD) | (TBD) | K8s Helm/Operator |
+| v2.0.0 | Horizon | Horizon | Orchestration |
+
+### 8.4 Display Format
+
+```bash
+$ wau version
+wau-cli v1.0.1 "Iris"
+Official CLI for WAU-core-kernel
+```
+
+### 8.5 Git Tag Convention
+
+```bash
+# Standard SemVer
+git tag -a v1.0.1 -m "v1.0.1 'Iris' - OS CLI 化 GA"
+
+# Pre-release
+git tag -a v1.1.0-rc1 -m "v1.1.0-rc1 'Jade' - Release candidate 1"
+```
+
+See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
+
+---
+
+## 9. Development
+
+### 9.1 Build
 
 ```bash
 go build -o wau ./cmd/wau
 ```
 
-### Test
+### 9.2 Test
 
 ```bash
 go test ./...
 ```
 
-### Project structure
+### 9.3 Project Structure
 
 ```
 wau-cli/
@@ -534,6 +533,7 @@ wau-cli/
 │   ├── cmd/                # Command implementations
 │   │   ├── agent/          # `wau agent ...`
 │   │   ├── task/           # `wau task ...`
+│   │   ├── stack/          # `wau stack ...`
 │   │   └── config/         # `wau config ...`
 │   ├── client/             # HTTP client for kernel API
 │   ├── output/             # Output formatters
@@ -542,127 +542,35 @@ wau-cli/
 └── README.md
 ```
 
-### Tech stack
+### 9.4 Tech Stack
 
-- [Cobra](https://github.com/spf13/cobra) - CLI framework
-- [Viper](https://github.com/spf13/viper) - Config management
-- [tablewriter](https://github.com/olekukonko/tablewriter) - Table output
-- [yaml.v3](https://gopkg.in/yaml.v3) - YAML parsing
+- [Cobra](https://github.com/spf13/cobra) — CLI framework
+- [Viper](https://github.com/spf13/viper) — Config management
+- [tablewriter](https://github.com/olekukonko/tablewriter) — Table output
+- [yaml.v3](https://gopkg.in/yaml.v3) — YAML parsing
 
----
-
-## 📋 Version Compatibility
+### 9.5 Version Compatibility
 
 | wau-cli | WAU-core-kernel |
 |---------|-----------------|
-| v0.1.0-dev | v0.2.0+ |
+| v1.0.1 "Iris" | v0.5.1+ |
+| v1.1.0 "Jade" | v0.7.0+ |
 
 ---
 
-## 🏷 Version Naming
+## 10. License
 
-`wau-cli` uses **SemVer + codename** dual-track versioning, inspired by [HashiCorp](https://github.com/hashicorp) (Terraform/Vault/Consul).
-
-### Current Release
-
-```
-v0.1.0 "Genesis" 🎉
-```
-
-### Naming Rules
-
-- **Alphabetical order**: Each minor version → one letter (A → B → C → ...)
-- **Theme**: Nature / animals / minerals
-- **Format**: Single word, capitalized first letter
-- **Source**: Inspired by HashiCorp and Ubuntu naming traditions
-
-### Roadmap
-
-| Version | Codename | Theme | Goal |
-|---------|----------|-------|------|
-| **v0.1.0** | **Genesis** | 创世 | **MVP (current)** ✅ |
-| v0.2.0 | Coral | 珊瑚 | Basic features improvement |
-| v0.3.0 | Dolphin | 海豚 | Multi-language SDK |
-| v0.4.0 | Emerald | 翡翠 | Client maturity |
-| v0.5.0 | Falcon | 猎鹰 | TUI + real-time |
-| **v1.0.0** | **Phoenix** | 凤凰 | **GA release** 🎯 |
-| v1.1.0 | Granite | 花岗岩 | Stability |
-| v2.0.0 | Horizon | 地平线 | Orchestration |
-
-### Display Format
-
-```bash
-$ wau version
-wau-cli v0.1.0 "Genesis"
-Official CLI for WAU-core-kernel
-```
-
-### Git Tag Convention
-
-```bash
-# Standard SemVer
-git tag -a v0.1.0 -m "v0.1.0 'Genesis' - MVP release"
-
-# Pre-release
-git tag -a v0.2.0-rc1 -m "v0.2.0-rc1 'Coral' - Release candidate 1"
-git tag -a v0.2.0-beta1 -m "v0.2.0-beta1 'Coral' - Beta"
-```
-
-See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
-
----
-
-## 📄 License
-
-Apache 2.0 - see [LICENSE](LICENSE)
+Apache 2.0 — see [LICENSE](LICENSE)
 
 ---
 
 ## 🔗 Related Projects
 
-- [WAU-core-kernel](https://github.com/wau/core-kernel) - Core service
-- [wau-registry](https://github.com/wau/registry) - Agent registry
-- [wau-circuit](https://github.com/wau/circuit) - Circuit breaker
-- [wau-intent](https://github.com/wau/intent) - Intent parser
-- [wau-scheduler](https://github.com/wau/scheduler) - Scheduler
+`wau-cli` is **the only** tool that talks to all 14 WAU repos. Each subcommand wraps a corresponding repo's HTTP/gRPC client.
 
----
-
-## v0.9.0 "Acorn" 收口段(2026-09-15 GA)
-
-上文详细介绍了 wau-cli 设计 + 子命令 + 与 WAU 产品体系的关系。本段为 v0.9.0 GA 增量补充。
-
-### 角色
-
-| OS 类比 | CLI / DevTool(开发工具)|
-|---|---|
-| 部署 | 单 binary,本地装,不入生产路径 |
-| 通信 | HTTP / gRPC client,调 WAU 产品体系所有仓 |
-| 状态 | v0.8.0 GA 已发(2026-07-13)|
-
-### v0.9.0 子命令新增
-
-- `wau trust issue/verify/revoke` — wau-trust 调试
-- `wau profile get/upsert` — wau-profile 调试
-- `wau intent classify` — wau-intent 调试
-- `wau registry register/list` — wau-registry-service 调试
-- `wau circuit run` — wau-circuit 跑 circuit 描述
-- `wau scheduler submit/stats` — wau-scheduler 调试
-
-### 跨产品体系
-
-`wau-cli` 是**唯一**跟 14 仓全部打交道的工具。每个子命令 = 1 个对应仓的 client 封装。
-
-### v0.9.0 "Acorn" 5 份核心文档
-
-| # | 文件 | 内容 |
-|---|---|---|
-| 1 | [README.md](README.md)(本文件)| 仓入口 + 子命令总览 + v0.9.0 收口段 |
-| 2 | [QUICKSTART.md](QUICKSTART.md) | 15 分钟跑通 5 个常用子命令 |
-| 3 | [DEPLOY.md](DEPLOY.md) | 本地装 + 配置 + autocompletion |
-| 4 | [ARCHITECTURE.md](ARCHITECTURE.md) | 子命令路由 + client 复用 |
-| 5 | [CHANGELOG.md](CHANGELOG.md) | v0.8.0 + v0.9.0 倒序(126 行已存在)|
-
-### 历史锚点
-
-- v0.8.0 GA([[project-v0.8.0-GA-2026-07-13]])
+- [WAU-core-kernel](https://github.com/wau/core-kernel) — Core service
+- [wau-registry](https://github.com/wau/registry) — Agent registry
+- [wau-circuit](https://github.com/wau/circuit) — Circuit breaker
+- [wau-intent](https://github.com/wau/intent) — Intent parser
+- [wau-scheduler](https://github.com/wau/scheduler) — Scheduler
+- [wau-cli](https://github.com/wau/wau-cli) — This project
