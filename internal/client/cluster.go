@@ -20,18 +20,20 @@ import (
 // ClusterStatus 集群状态汇总(P4.6 new)。
 //
 // 字段可能为 nil(对应 endpoint fail),partial fetch 时用 nil 区分。
+// Per D110(2026-09-06 v1.3.4c B1 polish):字段加 JSON tag 让 jq 查询用 lowercase 一致,
+// 之前没 tag → Go marshaling 用 PascalCase(`.Kernel.version`),用户 jq 小写查不到。
 type ClusterStatus struct {
-	Endpoint    string         // 目标 server URL(debug 用)
-	Health      *HealthResponse // /health response
-	Kernel      *KernelInfo    // /kernel/info response
-	AgentsTotal int            // /registry/agents 总数(从 len(raw array) 推)
-	Modules     []string       // 从 KernelInfo.Modules 提取(便利字段)
-	FetchedAt   time.Time      // 拉取时间戳
+	Endpoint    string         `json:"endpoint"`           // 目标 server URL(debug 用)
+	Health      *HealthResponse `json:"health,omitempty"`   // /health response
+	Kernel      *KernelInfo    `json:"kernel,omitempty"`   // /kernel/info response
+	AgentsTotal int            `json:"agentsTotal"`        // /registry/agents 总数(从 len(raw array) 推)
+	Modules     []string       `json:"modules,omitempty"`  // 从 KernelInfo.Modules 提取(便利字段)
+	FetchedAt   time.Time      `json:"fetchedAt"`          // 拉取时间戳
 
 	// HealthErr / KernelErr / AgentsErr 任一非 nil 表示对应 endpoint fail(partial)
-	HealthErr error
-	KernelErr error
-	AgentsErr error
+	HealthErr error `json:"healthErr,omitempty"`
+	KernelErr error `json:"kernelErr,omitempty"`
+	AgentsErr error `json:"agentsErr,omitempty"`
 }
 
 // GetClusterStatus 并发调 3 个 endpoint 拿 cluster 状态。
