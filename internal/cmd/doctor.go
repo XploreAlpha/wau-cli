@@ -53,14 +53,16 @@ For live service health use 'wau status'.
 
 Examples:
   wau doctor
-  wau doctor --format json`,
+  wau doctor --output json | jq '.ok'`,
 		Aliases:        []string{"diag"},
 		SilenceErrors:  true, // 自己控制错误打印,避免 cobra 双 print
 		SilenceUsage:   true, // 出错时不打 usage
 		RunE:           runDoctor,
 	}
-	// 用 --format 而不是 --output(避免与 root 的 -o/--output 冲突)
-	cmd.Flags().StringP("format", "f", "table", "output format: table|json")
+	// Per D106 B6 修复(2026-09-06 v1.3.4): 改用 root 的 --output/-o 跟其他 subcmd 对齐。
+	// 之前用 --format/-f 是为了避免"冲突",但实际上 root 的 -o/--output 跟 local --output
+	// 完全兼容(cobra 优先用 local),用户期望一致 = 用 root 那个。
+	cmd.Flags().StringP("output", "o", "table", "output format: table|json")
 	return cmd
 }
 
@@ -73,7 +75,7 @@ type doctorResult struct {
 
 func runDoctor(cmd *cobra.Command, args []string) error {
 	out := cmd.OutOrStdout()
-	format, _ := cmd.Flags().GetString("format")
+	format, _ := cmd.Flags().GetString("output")
 
 	result := doctorResult{
 		Version: fmt.Sprintf("wau-cli %s", version.Version),

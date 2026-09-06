@@ -30,12 +30,12 @@ func TestNewDoctorCmd_Flags(t *testing.T) {
 	if len(cmd.Aliases) == 0 || cmd.Aliases[0] != "diag" {
 		t.Errorf("Aliases = %v, want [diag]", cmd.Aliases)
 	}
-	flag := cmd.Flags().Lookup("format")
+	flag := cmd.Flags().Lookup("output")
 	if flag == nil {
-		t.Fatal("--format flag missing")
+		t.Fatal("--output flag missing")
 	}
-	if flag.Shorthand != "f" {
-		t.Errorf("shorthand = %q, want f", flag.Shorthand)
+	if flag.Shorthand != "o" {
+		t.Errorf("shorthand = %q, want o", flag.Shorthand)
 	}
 }
 
@@ -221,7 +221,7 @@ func TestRunDoctor_JSONOutput(t *testing.T) {
 	cmd.SetOut(stdout)
 	cmd.SetErr(stderr)
 	// 直接设置 flag(避免 cobra ParseFlags 副作用)
-	if err := cmd.Flags().Set("format", "json"); err != nil {
+	if err := cmd.Flags().Set("output", "json"); err != nil {
 		t.Fatal(err)
 	}
 	_ = runDoctor(cmd, nil) // JSON 路径不管 exit code

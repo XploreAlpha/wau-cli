@@ -142,7 +142,7 @@ func runNodeInfo(cmd *cobra.Command, args []string) error {
 	default:
 		fmt.Fprintf(cmd.OutOrStdout(), "Node:        %s\n", status.Name)
 		fmt.Fprintf(cmd.OutOrStdout(), "Status:      %s\n", status.Status)
-		fmt.Fprintf(cmd.OutOrStdout(), "Trust:       %.2f\n", status.Trust)
+		fmt.Fprintf(cmd.OutOrStdout(), "Trust:       %s\n", status.TrustDisplay())
 		fmt.Fprintf(cmd.OutOrStdout(), "Circuit:     %s\n", status.Circuit)
 		fmt.Fprintf(cmd.OutOrStdout(), "Active Tasks: %d / %d\n", status.Load.ActiveTasks, status.Load.MaxCapacity)
 		fmt.Fprintf(cmd.OutOrStdout(), "CPU:         %.1f%%\n", status.Load.CPUUsage)

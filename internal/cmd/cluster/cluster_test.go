@@ -41,7 +41,7 @@ func TestNewStatusCmd_BasicArgs(t *testing.T) {
 	if cmd.RunE == nil {
 		t.Error("RunE missing")
 	}
-	for _, name := range []string{"json", "timeout"} {
+	for _, name := range []string{"output", "timeout"} {
 		if cmd.Flags().Lookup(name) == nil {
 			t.Errorf("flag %q missing", name)
 		}

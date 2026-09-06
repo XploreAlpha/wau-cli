@@ -1,5 +1,10 @@
 package client
 
+import (
+	"encoding/json"
+	"fmt"
+)
+
 // HealthResponse is the response from /health endpoint.
 type HealthResponse struct {
 	Status  string  `json:"status"`
@@ -61,10 +66,15 @@ type AgentScore struct {
 }
 
 // AgentStatus represents an agent's comprehensive status.
+//
+// Per D104 (2026-09-06 v1.3.4 B3 修复):kernel 返回的 Trust 字段是 object
+// (kernel_api.TrustScore: score / successCount / failureCount / avgLatencyMs / lastUpdated),
+// 不是单 float64。改用 json.RawMessage 保留 kernel 真相源格式,避免 decode 失败。
+// 输出时 caller 用 TrustScoreOrFloat() 解析,或直接打印 string(t)。
 type AgentStatus struct {
-	Name   string `json:"name"`
-	Status string `json:"status"`
-	Trust  float64 `json:"trust"`
+	Name   string          `json:"name"`
+	Status string          `json:"status"`
+	Trust  json.RawMessage `json:"trust"`
 	Load   struct {
 		ActiveTasks int     `json:"activeTasks"`
 		MaxCapacity int     `json:"maxCapacity"`
@@ -72,6 +82,32 @@ type AgentStatus struct {
 		MemoryUsage float64 `json:"memoryUsage"`
 	} `json:"load"`
 	Circuit string `json:"circuit"`
+}
+
+// TrustScoreOrFloat 智能解析 Trust:object 找 score field,float 直接返回。
+// 用于 display(如 "Trust: 0.85")。
+func (a *AgentStatus) TrustScoreOrFloat() float64 {
+	if len(a.Trust) == 0 {
+		return 0
+	}
+	// 1) 试单 float64
+	var f float64
+	if err := json.Unmarshal(a.Trust, &f); err == nil {
+		return f
+	}
+	// 2) 试 kernel_api.TrustScore object,找 score field
+	var obj struct {
+		Score float64 `json:"score"`
+	}
+	if err := json.Unmarshal(a.Trust, &obj); err == nil {
+		return obj.Score
+	}
+	return 0
+}
+
+// TrustDisplay 友好显示:object 简化为 score,float 直接 .2f。
+func (a *AgentStatus) TrustDisplay() string {
+	return fmt.Sprintf("%.2f", a.TrustScoreOrFloat())
 }
 
 // Task represents a task.

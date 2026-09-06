@@ -70,8 +70,21 @@ func runLs(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(rt.Services) == 0 {
-		fmt.Fprintln(cmd.OutOrStdout(),
-			"No services tracked. Use `wau stack up` first.")
+		// Per D107 B7 修复(2026-09-06 v1.3.4):空状态也尊重 --output flag,
+		// 之前总是输出 plain text,导致 `wau stack ls -o json` 看到 plain text。
+		out := cmd.OutOrStdout()
+		if lsFormat == "json" {
+			// 输出空结构 JSON,方便 CI/GitOps 解析(per D107 B7 修复)
+			msg := "No services tracked. Use `wau stack up` first."
+			fmt.Fprintf(out, `{"stack":%q,"services":[],"message":%q}`+"\n", rt.Name, msg)
+		} else if lsFormat == "yaml" {
+			_, _ = fmt.Fprintln(out, "stack:", rt.Name)
+			_, _ = fmt.Fprintln(out, "services: []")
+			_, _ = fmt.Fprintln(out, "message: 'No services tracked. Use `wau stack up` first.'")
+		} else {
+			fmt.Fprintln(out,
+				"No services tracked. Use `wau stack up` first.")
+		}
 		return nil
 	}
 

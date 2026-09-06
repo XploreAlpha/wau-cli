@@ -2,6 +2,7 @@ package stack
 
 import (
 	"bytes"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -103,6 +104,39 @@ func TestLsCmd_EmptyState(t *testing.T) {
 	}
 	if !strings.Contains(out, "No services tracked") {
 		t.Errorf("expected helpful empty message, got:\n%s", out)
+	}
+}
+
+// TestLsCmd_EmptyState_OutputJSON 回归测试 D107 B7 修复(2026-09-06 v1.3.4):
+// 之前 `wau stack ls -o json` 空状态输出 plain text,现在必须输出有效 JSON。
+func TestLsCmd_EmptyState_OutputJSON(t *testing.T) {
+	out, err := executeCmd(t, []string{"stack", "ls", "--output", "json"})
+	if err != nil {
+		t.Fatalf("Execute: %v\n%s", err, out)
+	}
+	// 必须是合法 JSON
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Errorf("output not valid JSON: %v\n%s", err, out)
+		return
+	}
+	// 必须包含 "No services tracked" message + 空 services array
+	if msg, ok := parsed["message"].(string); !ok || !strings.Contains(msg, "No services tracked") {
+		t.Errorf("expected message field with 'No services tracked', got: %v", parsed["message"])
+	}
+	if svcs, ok := parsed["services"].([]interface{}); !ok || len(svcs) != 0 {
+		t.Errorf("expected empty services array, got: %v", parsed["services"])
+	}
+}
+
+// TestLsCmd_EmptyState_OutputYAML 回归测试 D107 B7 修复 yaml 路径。
+func TestLsCmd_EmptyState_OutputYAML(t *testing.T) {
+	out, err := executeCmd(t, []string{"stack", "ls", "--output", "yaml"})
+	if err != nil {
+		t.Fatalf("Execute: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "No services tracked") {
+		t.Errorf("expected YAML message, got:\n%s", out)
 	}
 }
 

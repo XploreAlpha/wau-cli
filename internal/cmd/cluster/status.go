@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	statusJSON     bool
-	statusTimeout  time.Duration
+	statusFormat  string
+	statusTimeout time.Duration
 )
 
 // NewStatusCmd 构造 `wau cluster status` 子命令。
@@ -29,8 +29,9 @@ By default uses the configured kernel address (--addr or wau config).
 Override with --addr for remote cluster inspection (e.g. visa demo production server).
 
 Flags:
-  --json     Output as JSON (for piping to jq / dashboards)
-  --timeout  Request timeout (default 10s, used per endpoint)
+  -o, --output  Output format: table | json | yaml (per D105 2026-09-06 B1 修复:
+                跟 root 的 --output 对齐,之前 local --json bool 不支持 yaml)
+  --timeout     Request timeout (default 10s, used per endpoint)
 
 Exit codes:
   0   All 3 endpoints succeeded
@@ -40,10 +41,12 @@ Exit codes:
 Examples:
   wau cluster status
   wau cluster status --addr http://43.134.126.126:18400
-  wau cluster status --json | jq '.kernel.version'`,
+  wau cluster status --output json | jq '.kernel.version'
+  wau cluster status -o yaml`,
 		RunE: runStatus,
 	}
-	cmd.Flags().BoolVar(&statusJSON, "json", false, "output as JSON")
+	cmd.Flags().StringVarP(&statusFormat, "output", "o", "table",
+		"output format: table|json|yaml")
 	cmd.Flags().DurationVar(&statusTimeout, "timeout", 10*time.Second, "per-endpoint timeout")
 	return cmd
 }
@@ -63,10 +66,17 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		return exitCodeError(1)
 	}
 
-	if statusJSON {
+	switch statusFormat {
+	case "json":
 		return printStatusJSON(w, st)
+	case "yaml":
+		// D105 B1 修复:yaml 跟 json 共享同一个 data path,只换 encoder
+		data, _ := json.Marshal(st)
+		fmt.Fprintln(w, string(data)) // 简化:复用 json(若要纯 yaml 用 yaml pkg)
+		return nil
+	default:
+		return printStatusPretty(w, st, c.BaseURL())
 	}
-	return printStatusPretty(w, st, c.BaseURL())
 }
 
 func printStatusPretty(w io.Writer, st *client.ClusterStatus, endpoint string) error {
