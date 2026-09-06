@@ -67,21 +67,25 @@ type AgentScore struct {
 
 // AgentStatus represents an agent's comprehensive status.
 //
-// Per D104 (2026-09-06 v1.3.4 B3 修复):kernel 返回的 Trust 字段是 object
-// (kernel_api.TrustScore: score / successCount / failureCount / avgLatencyMs / lastUpdated),
-// 不是单 float64。改用 json.RawMessage 保留 kernel 真相源格式,避免 decode 失败。
-// 输出时 caller 用 TrustScoreOrFloat() 解析,或直接打印 string(t)。
+// Per D104 (2026-09-06 v1.3.4 B3 修复):JSON tags 跟 kernel_api.AgentStatus 对齐:
+//   - Name      ← kernel AgentID     (json:"agentId")
+//   - Online    ← kernel Online bool  (json:"online")
+//   - Circuit   ← kernel CircuitState int (json:"circuitState")
+//   - Trust     ← json.RawMessage (kernel returns *TrustScore object)
+//
+// display layer 用 String() / strconv.FormatBool / .String() 转可读字符串。
 type AgentStatus struct {
-	Name   string          `json:"name"`
-	Status string          `json:"status"`
-	Trust  json.RawMessage `json:"trust"`
-	Load   struct {
+	Name       string          `json:"agentId"`
+	Online     bool            `json:"online"`
+	LastSeen   int64           `json:"lastSeen"`
+	Trust      json.RawMessage `json:"trust,omitempty"`
+	CircuitRaw int             `json:"circuitState"`
+	Load       struct {
 		ActiveTasks int     `json:"activeTasks"`
 		MaxCapacity int     `json:"maxCapacity"`
 		CPUUsage    float64 `json:"cpuUsage"`
 		MemoryUsage float64 `json:"memoryUsage"`
 	} `json:"load"`
-	Circuit string `json:"circuit"`
 }
 
 // TrustScoreOrFloat 智能解析 Trust:object 找 score field,float 直接返回。
@@ -108,6 +112,28 @@ func (a *AgentStatus) TrustScoreOrFloat() float64 {
 // TrustDisplay 友好显示:object 简化为 score,float 直接 .2f。
 func (a *AgentStatus) TrustDisplay() string {
 	return fmt.Sprintf("%.2f", a.TrustScoreOrFloat())
+}
+
+// StatusDisplay 把 Online bool 转 "online"/"offline"。
+func (a *AgentStatus) StatusDisplay() string {
+	if a.Online {
+		return "online"
+	}
+	return "offline"
+}
+
+// CircuitDisplay 把 CircuitRaw int 转 "closed"/"open"/"half-open"(per kernel_api.CircuitState.String())。
+func (a *AgentStatus) CircuitDisplay() string {
+	switch a.CircuitRaw {
+	case 0:
+		return "closed"
+	case 1:
+		return "open"
+	case 2:
+		return "half-open"
+	default:
+		return fmt.Sprintf("unknown(%d)", a.CircuitRaw)
+	}
 }
 
 // Task represents a task.

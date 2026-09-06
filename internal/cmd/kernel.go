@@ -65,7 +65,7 @@ func runKernelInfo(cmd *cobra.Command, args []string) error {
 		output.Success("WAU-core-kernel Information")
 		fmt.Printf("  Version:     %s\n", info.Version)
 		fmt.Printf("  Start Time:  %s\n", info.StartTime)
-		fmt.Printf("  Uptime:      %ds\n", info.Uptime)
+		fmt.Printf("  Uptime:      %s\n", formatUptimeSimple(time.Duration(info.Uptime)))
 		fmt.Printf("  Agents:      %d\n", info.AgentsCount)
 		fmt.Printf("  Tasks:       %d\n", info.TasksCount)
 	}
@@ -87,4 +87,19 @@ func runKernelVersion(cmd *cobra.Command, args []string) error {
 
 	fmt.Println(info.Version)
 	return nil
+}
+
+// formatUptimeSimple 把 time.Duration 格式化为 "1h 2m 3s" / "45s" / "300ms"。
+func formatUptimeSimple(d time.Duration) string {
+	if d < time.Second {
+		return d.String()
+	}
+	d = d.Truncate(time.Second)
+	if d < time.Minute {
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%dm %ds", int(d.Minutes()), int(d.Seconds())%60)
+	}
+	return fmt.Sprintf("%dh %dm", int(d.Hours()), int(d.Minutes())%60)
 }

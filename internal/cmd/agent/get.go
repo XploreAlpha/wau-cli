@@ -57,9 +57,9 @@ func runGet(cmd *cobra.Command, args []string) error {
 	}
 
 	output.Success("Agent: %s", agent.Name)
-	fmt.Printf("  Status:      %s\n", agent.Status)
+	fmt.Printf("  Status:      %s\n", agent.StatusDisplay())
 	fmt.Printf("  Trust:       %s\n", agent.TrustDisplay())
-	fmt.Printf("  Circuit:     %s\n", agent.Circuit)
+	fmt.Printf("  Circuit:     %s\n", agent.CircuitDisplay())
 	fmt.Printf("  Active Tasks:%d\n", agent.Load.ActiveTasks)
 	fmt.Printf("  Max Capacity:%d\n", agent.Load.MaxCapacity)
 	fmt.Printf("  CPU Usage:   %.1f%%\n", agent.Load.CPUUsage)
