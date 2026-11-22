@@ -302,7 +302,7 @@ wau auth logout
 ```bash
 # 集群状态(并发调 3 endpoint)
 wau cluster status                              # 本地 kernel
-wau cluster status --addr http://43.134.126.126:18400  # 远程 server
+wau cluster status --addr http://100.125.139.145:18400  # 远程 server
 wau cluster status --json                       # JSON 输出
 
 # 集群 agent 列表
@@ -330,7 +330,7 @@ wau cluster agents --status online --json
 wau health                  # 简单检查
 wau health --wait           # 等到 healthy
 wau health --wait --timeout 60s
-wau health --addr http://43.134.126.126:18400   # 远端
+wau health --addr http://100.125.139.145:18400   # 远端
 
 wau kernel info             # 详细信息
 wau kernel version          # 版本
@@ -374,7 +374,7 @@ wau task list                               # 列出最近
 ```bash
 wau node ls                              # 列出在线 node
 wau node ls -o json                      # JSON 给脚本
-wau node ls --addr http://43.134.126.126:18400   # 远端
+wau node ls --addr http://100.125.139.145:18400   # 远端
 wau node info fox-medical                # 单 node 详情
 wau peer ls                              # Alias (libp2p-style)
 ```
@@ -425,7 +425,7 @@ wau agent list -o csv      # CSV(给电子表格)
 
 ```yaml
 kernel:
-  addr: "http://43.134.126.126:18400"   # 生产服务器
+  addr: "http://100.125.139.145:18400"   # 生产服务器
   role: "external_agent"
   timeout: 30s
 
@@ -437,12 +437,19 @@ logging:
   level: "info"
 ```
 
+> ⚠️ **生产地址必须用 mesh IP(`100.125.139.145`),不能用公网 IP(`43.134.126.126`)。**
+> 2026-11-22 起,生产机的 18400 / 18401 / 50853 已从公网出口(eth0)收窄,只走 NetBird mesh:
+> - `18400` kernel 的 `/v1/chat/completions` **无鉴权** ⇒ 公网开着会被白嫖 LLM 额度
+> - `18401` registry **零鉴权**,且**单卡接口会返回 agent 的 `auth_token`** ⇒ 等于凭证泄露
+>
+> 所以 `wau-cli` 要在 mesh 内跑(机器上加了 NetBird 即可),或者走 SSH 隧道 / 跳板。
+
 ### 7.3 通过 `--addr` 远端访问
 
 所有 L5 命令支持 `--addr` flag,临时覆盖 `kernel.addr`。
 
 ```bash
-wau agent search medical --addr http://43.134.126.126:18401 --universe medical
+wau agent search medical --addr http://100.125.139.145:18401 --universe medical
 ```
 
 ### 7.4 RBAC 角色

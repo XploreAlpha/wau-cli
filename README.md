@@ -299,7 +299,7 @@ Cluster overview — composes `/health` + `/kernel/info` + `/registry/agents` in
 ```bash
 # Cluster status (3 endpoints concurrent)
 wau cluster status                              # Local kernel
-wau cluster status --addr http://43.134.126.126:18400  # Remote server
+wau cluster status --addr http://100.125.139.145:18400  # Remote server
 wau cluster status --json                       # JSON output
 
 # Cluster agent list
@@ -327,7 +327,7 @@ wau cluster agents --status online --json
 wau health                  # Simple check
 wau health --wait           # Wait for healthy
 wau health --wait --timeout 60s
-wau health --addr http://43.134.126.126:18400   # Remote
+wau health --addr http://100.125.139.145:18400   # Remote
 
 wau kernel info             # Detailed info
 wau kernel version          # Version
@@ -371,7 +371,7 @@ wau task list                                 # List recent
 ```bash
 wau node ls                              # List online nodes
 wau node ls -o json                      # JSON for scripts
-wau node ls --addr http://43.134.126.126:18400   # Remote
+wau node ls --addr http://100.125.139.145:18400   # Remote
 wau node info fox-medical                # Detailed status for one node
 wau peer ls                              # Alias (libp2p-style)
 ```
@@ -422,7 +422,7 @@ Searched in order:
 
 ```yaml
 kernel:
-  addr: "http://43.134.126.126:18400"   # Production server
+  addr: "http://100.125.139.145:18400"   # Production server
   role: "external_agent"
   timeout: 30s
 
@@ -434,12 +434,20 @@ logging:
   level: "info"
 ```
 
+> ⚠️ **Use the mesh IP (`100.125.139.145`) for production, not the public IP (`43.134.126.126`).**
+> As of 2026-11-22 the production host's 18400 / 18401 / 50853 are narrowed to the NetBird mesh
+> (public egress `eth0` is dropped):
+> - `18400` — kernel's `/v1/chat/completions` has **no auth** ⇒ exposing it publicly burns LLM quota
+> - `18401` — registry has **zero auth** and its **single-card endpoint returns the agent's `auth_token`** ⇒ credential leak
+>
+> So run `wau-cli` from inside the mesh (add NetBird to the machine), or use an SSH tunnel / jump host.
+
 ### 7.3 Remote access via `--addr`
 
 All L5 commands support `--addr` flag to override `kernel.addr` temporarily.
 
 ```bash
-wau agent search medical --addr http://43.134.126.126:18401 --universe medical
+wau agent search medical --addr http://100.125.139.145:18401 --universe medical
 ```
 
 ### 7.4 RBAC Roles
